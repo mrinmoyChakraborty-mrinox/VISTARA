@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 
 import { getEnv, isEnvConfigured } from "@/lib/env";
+import { getMemory } from "@/lib/apiClient";
 import type { Memory } from "@/types/domain";
 import type {
   ProcessingState,
@@ -127,9 +128,25 @@ export function useCameraSocket(
             setChangeScore(msg.score);
             break;
           case "memory_created":
-            setLastMemory(msg.memory);
+            // The socket payload is lightweight (memory_id/summary/baseline).
+            // The full memory — objects, events, evidence, is_baseline — comes
+            // from the existing REST endpoint. Never fabricate it locally.
+            if (!msg.memory_id) {
+              setSocketError("The camera reported a memory without an id.");
+              setProcessing("idle");
+              break;
+            }
             setProcessing("idle");
-            onMemoryRef.current?.(msg.memory);
+            void getMemory(msg.memory_id)
+              .then((memory) => {
+                setLastMemory(memory);
+                onMemoryRef.current?.(memory);
+              })
+              .catch(() => {
+                setSocketError(
+                  "A memory was saved but could not be loaded. Refresh the timeline.",
+                );
+              });
             break;
           case "error":
             setSocketError(msg.message);

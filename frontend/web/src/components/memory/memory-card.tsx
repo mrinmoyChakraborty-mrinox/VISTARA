@@ -25,8 +25,9 @@ export function MemoryCard({
   cameraName?: string;
   onOpen?: (memory: Memory) => void;
 }) {
-  const thumb = useEvidenceBlobUrl(memory.evidence_id);
+  const { url: thumb } = useEvidenceBlobUrl(memory.evidence_id);
   const [loaded, setLoaded] = useState(false);
+  const [imgError, setImgError] = useState(false);
 
   const open = () => onOpen?.(memory);
 
@@ -60,6 +61,15 @@ export function MemoryCard({
         </span>
       </div>
 
+      {memory.is_baseline && (
+        <div>
+          <span className="schip" title="Initial visual baseline — the reference state, not a movement">
+            <span className="sdot" aria-hidden="true" />
+            Baseline
+          </span>
+        </div>
+      )}
+
       <div className="flex flex-wrap" style={{ gap: 6 }}>
         {(memory.objects ?? []).slice(0, 6).map((o) => (
           <ObjectChip key={o.id} name={o.name} />
@@ -82,12 +92,13 @@ export function MemoryCard({
           aspectRatio: "16 / 8",
         }}
       >
-        {thumb && (
+        {thumb && !imgError && (
           // eslint-disable-next-line @next/next/no-img-element
           <img
             src={thumb}
             alt=""
             onLoad={() => setLoaded(true)}
+            onError={() => setImgError(true)}
             style={{
               width: "100%",
               height: "100%",

@@ -86,7 +86,7 @@ export const FEATURES: Feature[] = [
     category: "priv",
     icon: "🧩",
     title: "Open-weight models",
-    body: "Qwen3-VL sees, GPT-OSS 20B reasons, Qwen3-Embedding finds. Raw video is never blindly embedded.",
+    body: "Qwen3.8-27B sees, GPT-OSS 20B reasons, Qwen3-Embedding finds. Raw video is never blindly embedded.",
     wide: true,
   },
 ];

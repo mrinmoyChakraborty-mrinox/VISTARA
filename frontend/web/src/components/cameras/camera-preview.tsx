@@ -16,8 +16,12 @@ import type { Camera } from "@/types/domain";
 
 type StreamState = "idle" | "requesting" | "live" | "denied" | "unavailable";
 
+/** Unconditional frames sent right after connect to seed the backend baseline. */
+const BASELINE_SEED_FRAMES = 8;
+
 export function CameraPreview({ camera }: { camera: Camera }) {
-  const { sendFrame, setGateState, changeScore, processing } = useCamera();
+  const { connection, sendFrame, setGateState, changeScore, processing } =
+    useCamera();
   const { settings } = useCaptureSettings();
   const videoRef = useRef<HTMLVideoElement>(null);
   const gateRef = useRef<ChangeGate | null>(null);
@@ -29,6 +33,21 @@ export function CameraPreview({ camera }: { camera: Camera }) {
   const [retry, setRetry] = useState(0);
   const lastScore = useRef<number | null>(null);
   const settingsRef = useRef(settings);
+  // Frames still to send unconditionally after (re)connect. The backend
+  // needs >=5 frames over >=3s to establish the initial visual baseline
+  // (backend/app/perception/baseline.py); a static scene would otherwise
+  // never pass the local gate and the baseline would starve. The backend
+  // gate stays authoritative — extra frames on an already-ready camera are
+  // dropped server-side.
+  const seedLeftRef = useRef(BASELINE_SEED_FRAMES);
+  const connectionRef = useRef(connection);
+
+  useEffect(() => {
+    if (connection === "connected" && connectionRef.current !== "connected") {
+      seedLeftRef.current = BASELINE_SEED_FRAMES;
+    }
+    connectionRef.current = connection;
+  }, [connection]);
 
   useEffect(() => {
     settingsRef.current = settings;
@@ -53,6 +72,7 @@ export function CameraPreview({ camera }: { camera: Camera }) {
     let stream: MediaStream | null = null;
     let timer: ReturnType<typeof setInterval> | null = null;
     const video = videoRef.current;
+    seedLeftRef.current = BASELINE_SEED_FRAMES;
 
     async function start() {
       if (!video || cancelled) return;
@@ -102,7 +122,9 @@ export function CameraPreview({ camera }: { camera: Camera }) {
         if (thumb) {
           const res = gate.push(thumb.pixels);
           setGateState(gate.state);
-          if (res.changed) {
+          const seeding = seedLeftRef.current > 0;
+          if (res.changed || seeding) {
+            if (seeding) seedLeftRef.current -= 1;
             sendFrame(frame.data, Date.now());
             const now = Date.now();
             totalRef.current += 1;

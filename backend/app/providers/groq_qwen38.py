@@ -17,7 +17,11 @@ from backend.app.providers.vision import VisionProvider, VisionResult
 _NO_OBJECTS_HINT = (
     "Report every visible object with a short spatial location. "
     "If an object seen earlier is not visible now, do not invent it and do not "
-    "claim it is gone; use 'last observed' wording."
+    "claim it is gone; use 'last observed' wording. "
+    "Be concise to fit the output budget: locations max 6 words, descriptions max "
+    "20 words, status one of visible/partially_visible/last_observed, at most "
+    "8 objects, at most 4 events. Prefer the demo objects of interest "
+    "(ESP32, phone, notebook, bottle) when visible."
 )
 
 
@@ -45,6 +49,7 @@ class GroqQwen38VisionProvider(VisionProvider):
         self._client = Groq(api_key=key)
         self._model = model or settings.groq_vlm_model
         self._fallback = fallback_model or settings.groq_vlm_fallback_model
+        self._reasoning_effort = settings.groq_vlm_reasoning_effort
         self._timeout = settings.groq_timeout_seconds
 
     @property
@@ -57,16 +62,21 @@ class GroqQwen38VisionProvider(VisionProvider):
 
         return "data:image/jpeg;base64," + base64.b64encode(jpeg).decode("ascii")
 
-    def _call(self, frames: list[bytes], model: str) -> tuple[str, float, dict, int]:
-        from backend.app.memory.schemas import VLM_SYSTEM_PROMPT as _sp  # local alias
+    def _call(
+        self, frames: list[bytes], model: str, baseline: bool = False
+    ) -> tuple[str, float, dict, int]:
+        from backend.app.memory.schemas import (  # local alias
+            VLM_BASELINE_PROMPT,
+            VLM_SYSTEM_PROMPT as _sp,
+        )
 
-        content: list[dict] = [
-            {
-                "type": "text",
-                "text": "Analyze these camera frames in time order. "
-                + _NO_OBJECTS_HINT,
-            }
-        ]
+        user_text = (
+            "Establish the INITIAL VISUAL BASELINE for this camera. "
+            "Inventory the current state for future comparison. " + _NO_OBJECTS_HINT
+            if baseline
+            else "Analyze these camera frames in time order. " + _NO_OBJECTS_HINT
+        )
+        content: list[dict] = [{"type": "text", "text": user_text}]
         for jpeg in frames:
             content.append(
                 {
@@ -78,7 +88,7 @@ class GroqQwen38VisionProvider(VisionProvider):
         raw = self._client.chat.completions.with_raw_response.create(
             model=model,
             messages=[
-                {"role": "system", "content": _sp},
+                {"role": "system", "content": VLM_BASELINE_PROMPT if baseline else _sp},
                 {"role": "user", "content": content},
             ],
             response_format={
@@ -89,9 +99,11 @@ class GroqQwen38VisionProvider(VisionProvider):
                     "strict": True,
                 },
             },
-            reasoning_effort="none",
+            reasoning_effort=self._reasoning_effort,
             temperature=0.1,
-            max_tokens=1000,
+            # Phase 2 verified: free-tier OTPM limit is 1000. ~1500 stays under
+            # the enforced estimate while fitting a complete scene+objects+events JSON.
+            max_tokens=1500,
             timeout=self._timeout,
         )
         latency_ms = (time.perf_counter() - t0) * 1000.0
@@ -109,7 +121,10 @@ class GroqQwen38VisionProvider(VisionProvider):
         return getattr(exc, "status_code", None) in (429, 500, 502, 503, 504)
 
     def analyze(
-        self, frames: list[bytes], previous_state: dict | None = None
+        self,
+        frames: list[bytes],
+        previous_state: dict | None = None,
+        baseline: bool = False,
     ) -> VisionResult:
         candidates = [(self._model, False)]
         if self._fallback and self._fallback != self._model:
@@ -119,7 +134,9 @@ class GroqQwen38VisionProvider(VisionProvider):
         for model, is_fallback in candidates:
             for _attempt in range(2):  # initial + one retry on malformed output
                 try:
-                    text, latency_ms, headers, payload = self._call(frames, model)
+                    text, latency_ms, headers, payload = self._call(
+                        frames, model, baseline
+                    )
                     perception = VLMPerception.parse(json.loads(_extract_json(text)))
                     log_event(
                         "vlm_completed",
@@ -152,7 +169,9 @@ class GroqQwen38VisionProvider(VisionProvider):
         if len(frames) > 1:
             try:
                 tiled = tile_frames_horizontal(frames)
-                text, latency_ms, headers, _ = self._call([tiled], self._model)
+                text, latency_ms, headers, _ = self._call(
+                    [tiled], self._model, baseline
+                )
                 perception = VLMPerception.parse(json.loads(_extract_json(text)))
                 return VisionResult(
                     perception=perception,

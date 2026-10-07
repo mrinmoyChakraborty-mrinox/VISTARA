@@ -9,6 +9,17 @@ from backend.app.core.config import settings
 router = APIRouter(tags=["health"])
 
 
+def _db_backend() -> str:
+    url = settings.database_url
+    if not url:
+        return "unset"
+    if url.startswith("sqlite"):
+        return "sqlite-local"
+    if "supabase" in url or url.startswith(("postgresql", "postgres")):
+        return "supabase-postgres"
+    return "postgres"
+
+
 @router.get("/api/health")
 def health() -> dict:
     return {
@@ -17,7 +28,7 @@ def health() -> dict:
         "environment": settings.app_env,
         "database": {
             "configured": settings.database_configured,
-            "backend": "supabase-postgres" if settings.database_configured else "unset",
+            "backend": _db_backend(),
         },
         "groq": {
             "configured": settings.groq_configured,

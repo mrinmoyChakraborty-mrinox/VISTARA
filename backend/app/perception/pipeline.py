@@ -33,6 +33,9 @@ class EventContext:
     context_jpegs: list[bytes] = field(default_factory=list)
     crop_jpeg: bytes | None = None
     score: float = 0.0
+    # Baseline contexts inventory initial state (no movement/events) and mark
+    # the camera ready; normal contexts derive deltas against that state.
+    is_baseline: bool = False
 
 
 def build_event_payload(buffer: RollingBuffer) -> EventContext | None:

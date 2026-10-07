@@ -161,6 +161,7 @@ class MemoryRepository:
         activity: str,
         environment: str,
         confidence: float,
+        is_baseline: bool = False,
     ) -> Memory:
         memory = Memory(
             user_id=_as_uuid(user_id),
@@ -171,6 +172,7 @@ class MemoryRepository:
             activity=activity,
             environment=environment,
             confidence=confidence,
+            is_baseline=is_baseline,
         )
         self.db.add(memory)
         self.db.flush()

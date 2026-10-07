@@ -30,10 +30,24 @@ const state: QueueState = {
 const listeners = new Set<Listener>();
 let worker: Worker | null = null;
 let seq = 0;
+/** Hung-inference guard: a job that never resolves settles as an error. */
+const EMBED_TIMEOUT_MS = 300_000;
+/** Overflow guard: the queue never grows without bound. */
+const MAX_PENDING = 20;
 const pending = new Map<
   string,
-  { memoryId: string; resolve: (v: number[]) => void; reject: (e: Error) => void }
->();
+  { memoryId: string; resolve: (v: number[]) => void; reject: (e: Error) => void; timer: ReturnType<typeof setTimeout> }
+>;
+
+function failPending(id: string, err: Error) {
+  const job = pending.get(id);
+  if (!job) return;
+  pending.delete(id);
+  clearTimeout(job.timer);
+  state.statusById[job.memoryId] = "error";
+  emit();
+  job.reject(err);
+}
 
 function emit() {
   const snapshot: QueueState = {
@@ -90,16 +104,24 @@ function ensureWorker(): Worker | null {
     const job = pending.get(msg.id);
     if (!job) return;
     pending.delete(msg.id);
+    clearTimeout(job.timer);
     if (msg.type === "result") {
       state.modelState = "ready";
       emit();
       job.resolve(msg.vector);
     } else {
+      state.statusById[job.memoryId] = "error";
+      emit();
       job.reject(new Error(msg.message));
     }
   };
   worker.onerror = () => {
+    // A crashed worker must never leave jobs (and their pills) hanging in
+    // "indexing" forever. Memories stay visible; indexing shows retry.
     state.modelState = "error";
+    for (const id of [...pending.keys()]) {
+      failPending(id, new Error("The embedding worker crashed."));
+    }
     emit();
   };
   return worker;
@@ -108,11 +130,17 @@ function ensureWorker(): Worker | null {
 function embedText(text: string, memoryId: string): Promise<number[]> {
   const w = ensureWorker();
   if (!w) return Promise.reject(new Error("Embedding is unsupported here."));
+  if (pending.size >= MAX_PENDING) {
+    return Promise.reject(new Error("Embedding queue is full."));
+  }
   state.modelState = "loading";
   emit();
   return new Promise<number[]>((resolve, reject) => {
     const id = `embed-${Date.now()}-${(seq += 1)}`;
-    pending.set(id, { memoryId, resolve, reject });
+    const timer = setTimeout(() => {
+      failPending(id, new Error("Embedding timed out."));
+    }, EMBED_TIMEOUT_MS);
+    pending.set(id, { memoryId, resolve, reject, timer });
     w.postMessage({ id, type: "embed", text, memoryId });
   });
 }
@@ -149,7 +177,9 @@ export function reloadEmbeddingModel() {
     // Best-effort.
   }
   worker = null;
-  pending.clear();
+  for (const id of [...pending.keys()]) {
+    failPending(id, new Error("Embedding was reset."));
+  }
   state.modelState = "idle";
   state.progress = 0;
   state.progressFile = "";

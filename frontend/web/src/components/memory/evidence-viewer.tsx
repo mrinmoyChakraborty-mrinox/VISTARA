@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { ImageOff, ZoomIn, ZoomOut } from "lucide-react";
 
 import { useEvidenceBlobUrl } from "@/hooks/use-evidence";
@@ -30,13 +30,21 @@ export function EvidenceViewer({
   onClose: () => void;
   title?: string;
 }) {
-  const url = useEvidenceBlobUrl(open ? evidenceId : null, open ? directUrl : undefined);
+  const { url, unavailable: fetchUnavailable } = useEvidenceBlobUrl(
+    open ? evidenceId : null,
+    open ? directUrl : undefined,
+  );
   const [zoomed, setZoomed] = useState(false);
   const [failed, setFailed] = useState(false);
 
+  useEffect(() => {
+    setZoomed(false);
+    setFailed(false);
+  }, [evidenceId, directUrl]);
+
   if (!open) return null;
 
-  const unavailable = !evidenceId && !directUrl;
+  const unavailable = !evidenceId && !directUrl ? true : fetchUnavailable || failed;
 
   return (
     <div

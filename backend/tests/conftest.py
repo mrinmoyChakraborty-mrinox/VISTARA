@@ -25,9 +25,20 @@ settings.mock_mode = True
 settings.change_threshold = 0.005
 settings.persistence_frames = 1
 settings.cooldown_seconds = 0.0
+# Tests send frames back-to-back; disable ingest sampling interference (0 = unlimited).
+settings.ingest_max_fps = 0.0
 settings.vlm_main_max_side = 512
 settings.vlm_context_max_side = 256
 settings.vlm_crop_max_side = 256
+# Fast baselines in tests: 1 settled frame finalizes immediately.
+settings.baseline_warmup_frames = 1
+settings.baseline_warmup_seconds = 0.0
+settings.baseline_settled_threshold = 0.5
+settings.baseline_settled_frames = 1
+settings.baseline_max_wait_seconds = 0.0
+settings.baseline_context_frames = 2
+settings.baseline_max_attempts = 3
+settings.baseline_retry_cooldown_seconds = 0.0
 
 
 @pytest.fixture(autouse=True)
@@ -41,6 +52,15 @@ def _engine():
     db_session.reset_engine_for_tests(engine)
     db_session.create_all(engine)
     yield engine
+
+
+@pytest.fixture(autouse=True)
+def _camera_manager_reset():
+    from backend.app.cameras.manager import manager
+
+    manager.reset_for_tests()
+    yield
+    manager.reset_for_tests()
 
 
 @pytest.fixture()

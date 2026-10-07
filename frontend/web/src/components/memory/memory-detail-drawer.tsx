@@ -30,6 +30,14 @@ export function MemoryDetailDrawer({
             <SheetTitle id="memory-detail-title">
               {memory.scene?.summary ?? "Memory"}
             </SheetTitle>
+            {memory.is_baseline && (
+              <div>
+                <span className="schip" title="Initial visual baseline — the reference state, not a movement">
+                  <span className="sdot" aria-hidden="true" />
+                  Baseline reference
+                </span>
+              </div>
+            )}
             <p className="mono mute">
               {formatMemoryTime(memory.timestamp)}
               {cameraName ? ` · ${cameraName}` : ""}

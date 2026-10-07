@@ -26,6 +26,10 @@ class Settings(BaseSettings):
     # ------------------------------------------------------------------ app
     app_env: str = Field(default="development", alias="APP_ENV")
     log_level: str = Field(default="INFO", alias="LOG_LEVEL")
+    # Comma-separated browser origins allowed to call the API + open sockets
+    # in non-development environments (e.g. the deployed frontend). Empty
+    # preserves the previous behavior (no browser origins in prod).
+    cors_origins: str = Field(default="", alias="CORS_ORIGINS")
 
     # ------------------------------------------------------------- supabase
     supabase_url: str = Field(default="", alias="SUPABASE_URL")
@@ -51,6 +55,11 @@ class Settings(BaseSettings):
     groq_vlm_fallback_model: str = Field(
         default="qwen/qwen3.8-27b", alias="GROQ_VLM_FALLBACK_MODEL"
     )
+    # Verified Phase 2: qwen3.8-27b with reasoning_effort="none" fails strict JSON
+    # schema validation (truncated output). "low" is minimal reasoning and validated.
+    groq_vlm_reasoning_effort: str = Field(
+        default="low", alias="GROQ_VLM_REASONING_EFFORT"
+    )
 
     # ------------------------------------------------------------- gate (s5)
     frame_sample_fps: int = Field(default=2, alias="FRAME_SAMPLE_FPS")
@@ -69,10 +78,45 @@ class Settings(BaseSettings):
     vlm_jpeg_quality: int = Field(default=85, alias="VLM_JPEG_QUALITY")
     vlm_crop_padding_px: int = Field(default=24, alias="VLM_CROP_PADDING_PX")
 
+    # --------------------------------------- initial visual baseline (per camera)
+    # Warm-up: minimum frames + seconds before the baseline may finalize.
+    baseline_warmup_frames: int = Field(default=5, alias="BASELINE_WARMUP_FRAMES")
+    baseline_warmup_seconds: float = Field(default=3.0, alias="BASELINE_WARMUP_SECONDS")
+    # Stability: gate scores below this count toward a settled streak.
+    baseline_settled_threshold: float = Field(
+        default=0.03, alias="BASELINE_SETTLED_THRESHOLD"
+    )
+    baseline_settled_frames: int = Field(default=3, alias="BASELINE_SETTLED_FRAMES")
+    # Bounded fallback: never wait for perfect stability longer than this.
+    baseline_max_wait_seconds: float = Field(
+        default=20.0, alias="BASELINE_MAX_WAIT_SECONDS"
+    )
+    baseline_context_frames: int = Field(default=3, alias="BASELINE_CONTEXT_FRAMES")
+    baseline_max_attempts: int = Field(default=5, alias="BASELINE_MAX_ATTEMPTS")
+    baseline_retry_cooldown_seconds: float = Field(
+        default=30.0, alias="BASELINE_RETRY_COOLDOWN_SECONDS"
+    )
+
     # --------------------------------------------------------------- misc
     # Force offline/mock providers (no Groq, no Supabase). Used by tests.
     mock_mode: bool = Field(default=False, alias="MOCK_MODE")
     groq_timeout_seconds: float = Field(default=60.0, alias="GROQ_TIMEOUT_SECONDS")
+
+    # ------------------------------------------------- camera connectivity
+    # WebSocket frame ingestion hardening.
+    ws_max_frame_bytes: int = Field(default=5 * 1024 * 1024, alias="WS_MAX_FRAME_BYTES")
+    ws_max_image_dim: int = Field(default=4096, alias="WS_MAX_IMAGE_DIM")
+    # Max frames/sec accepted per camera before the ingest layer drops excess
+    # (preview may be faster; AI processing stays gate-driven).
+    ingest_max_fps: float = Field(default=5.0, alias="INGEST_MAX_FPS")
+    # Bounded per-camera event queue (drop-oldest when full).
+    event_queue_maxsize: int = Field(default=4, alias="EVENT_QUEUE_MAXSIZE")
+    # Phone QR pairing sessions.
+    pairing_ttl_seconds: float = Field(default=600.0, alias="PAIRING_TTL_SECONDS")
+    # SSRF policy: allow private/loopback stream hosts (self-hosted LAN cameras).
+    cameras_allow_private_networks: bool = Field(
+        default=False, alias="CAMERAS_ALLOW_PRIVATE_NETWORKS"
+    )
 
     # Feature flags surfaced by /api/health.
     @property

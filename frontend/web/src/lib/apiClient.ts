@@ -3,7 +3,6 @@
 // client never sends user_id (identity is derived server-side from the token).
 import type {
   Camera,
-  CameraSession,
   ChatMessage,
   Evidence,
   Memory,
@@ -123,11 +122,12 @@ export function deleteCamera(id: string) {
 }
 
 export function startCamera(id: string) {
-  return apiFetch<CameraSession>(`/api/cameras/${id}/start`, { method: "POST" });
+  // The backend returns the updated camera (CameraOut), not a session record.
+  return apiFetch<Camera>(`/api/cameras/${id}/start`, { method: "POST" });
 }
 
 export function stopCamera(id: string) {
-  return apiFetch<CameraSession>(`/api/cameras/${id}/stop`, { method: "POST" });
+  return apiFetch<Camera>(`/api/cameras/${id}/stop`, { method: "POST" });
 }
 
 export function listMemories(
@@ -141,9 +141,10 @@ export function getMemory(id: string) {
 }
 
 export function postEmbedding(id: string, vector: number[]) {
+  // Backend EmbeddingIn carries exactly { embedding }; nothing else.
   return apiFetch<unknown>(`/api/memories/${id}/embedding`, {
     method: "POST",
-    body: JSON.stringify({ embedding: vector, dims: vector.length }),
+    body: JSON.stringify({ embedding: vector }),
   });
 }
 
@@ -157,11 +158,18 @@ export interface ObjectObservation {
 }
 
 function toObservations(payload: unknown, name: string): ObjectObservation[] {
+  // The backend returns { object, first_seen, last_seen, entries[] } where
+  // each entry is { timestamp, camera_id, location, status, memory_id }
+  // (backend/app/retrieval/service.py::get_object_history). Entries carry no
+  // attributes; observation attributes default to {}.
+  const raw = payload as {
+    observations?: unknown;
+    memories?: unknown;
+    entries?: unknown;
+  };
   const list = Array.isArray(payload)
     ? payload
-    : ((payload as { observations?: unknown }).observations ??
-      (payload as { memories?: unknown }).memories ??
-      []);
+    : ((raw.observations ?? raw.memories ?? raw.entries ?? []) as unknown);
   if (!Array.isArray(list)) return [];
   const out: ObjectObservation[] = [];
   for (const entry of list) {
@@ -241,6 +249,17 @@ export async function fetchEvidenceBlob(
     headers: token ? { Authorization: `Bearer ${token}` } : {},
   });
   if (!res.ok) throw await toApiError(res);
+  const contentType = res.headers.get("content-type") ?? "";
+  if (contentType.includes("application/json")) {
+    // Local/offline fallback: the backend answers with metadata JSON
+    // ({ id, storage_path, url: null }), not image bytes. Callers render an
+    // honest "unavailable" state instead of a broken image.
+    throw {
+      status: 200,
+      code: "evidence-unavailable",
+      message: "This backend does not serve evidence files.",
+    } as ApiError;
+  }
   const blob = await res.blob();
   const url = URL.createObjectURL(blob);
   return { url, revoke: () => URL.revokeObjectURL(url) };

@@ -96,7 +96,14 @@ def vlm_json_schema() -> dict[str, Any]:
                         "name": {"type": "string"},
                         "location": {"type": "string"},
                         "status": {"type": "string"},
-                        "attributes": {"type": "object"},
+                        "attributes": {
+                            "type": "object",
+                            "properties": {
+                                "color": {"type": "string"},
+                            },
+                            "required": ["color"],
+                            "additionalProperties": False,
+                        },
                     },
                     "required": [
                         "temporary_id",
@@ -153,6 +160,25 @@ VLM_SYSTEM_PROMPT = (
 )
 
 
+VLM_BASELINE_PROMPT = (
+    "This is the INITIAL VISUAL BASELINE for a camera. "
+    "Establish the current visual state that future observations will be "
+    "compared against.\n"
+    "Inventory all reasonably visible, potentially useful objects. "
+    "Record visually supported attributes such as:\n"
+    "- type\n"
+    "- color\n"
+    "- approximate location\n"
+    "- state\n"
+    "- relevant relationships\n"
+    "Do not fabricate attributes. "
+    "Do not report movement/events yet because this is the initial baseline. "
+    "This observation establishes the starting state of the scene.\n"
+    "Return JSON matching the schema exactly with an empty events array. "
+    "No prose, no markdown, no commentary."
+)
+
+
 # --------------------------------------------------------------------- API
 class SceneOut(BaseModel):
     type: str
@@ -203,6 +229,7 @@ class MemoryOut(BaseModel):
     events: list[MemoryEventOut] = Field(default_factory=list)
     confidence: float
     evidence_id: uuid.UUID | None = None
+    is_baseline: bool = False
     created_at: datetime
 
 

@@ -49,6 +49,8 @@ create table if not exists public.memories (
     environment text not null default '',
     confidence double precision not null default 0,
     embedding vector(1024),
+    -- True for the initial visual baseline memory of a camera (delta "before" state).
+    is_baseline boolean not null default false,
     evidence_id uuid,
     created_at timestamptz not null default now()
 );

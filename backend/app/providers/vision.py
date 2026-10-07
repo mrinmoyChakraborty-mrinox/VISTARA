@@ -23,9 +23,16 @@ class VisionResult:
 class VisionProvider(ABC):
     @abstractmethod
     def analyze(
-        self, frames: list[bytes], previous_state: dict | None = None
+        self,
+        frames: list[bytes],
+        previous_state: dict | None = None,
+        baseline: bool = False,
     ) -> VisionResult:
-        """Validate and return structured perception for a contextual frame burst."""
+        """Validate and return structured perception for a contextual frame burst.
+
+        baseline=True requests an initial-state inventory (no movement/events);
+        the prompt must say so. Same strict JSON contract either way.
+        """
         raise NotImplementedError
 
     @property

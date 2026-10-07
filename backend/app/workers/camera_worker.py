@@ -22,13 +22,25 @@ from backend.app.providers.vision import VisionProvider, VisionResult
 async def process_event(
     ctx: EventContext, vision: VisionProvider
 ) -> tuple[VisionResult | None, str | None, list[dict]]:
-    """Run one VLM analysis + persist memory/evidence. Returns (result, memory_id, events)."""
+    """Run one VLM analysis + persist memory/evidence. Returns (result, memory_id, events).
+
+    Baseline contexts use the baseline prompt and persist an event-free baseline
+    memory; normal contexts derive deltas against the current scene state.
+    """
     frames = payload_images(ctx)
-    log_event("vlm_started", status="ok", camera_id=ctx.camera_id, user_id=ctx.user_id)
+    log_event(
+        "vlm_started",
+        status="ok",
+        camera_id=ctx.camera_id,
+        user_id=ctx.user_id,
+        extra={"baseline": ctx.is_baseline},
+    )
 
     try:
         with timed() as t:
-            result = await asyncio.to_thread(vision.analyze, frames, None)
+            result = await asyncio.to_thread(
+                vision.analyze, frames, None, ctx.is_baseline
+            )
         log_event(
             "vlm_completed",
             status="ok",
@@ -56,6 +68,7 @@ async def process_event(
             result.perception,
             previous_state=previous,
             timestamp=ctx.timestamp,
+            is_baseline=ctx.is_baseline,
         )
         evidence_id = None
         try:

@@ -24,9 +24,17 @@ class MockVisionProvider(VisionProvider):
         return "mock-vlm"
 
     def analyze(
-        self, frames: list[bytes], previous_state: dict | None = None
+        self,
+        frames: list[bytes],
+        previous_state: dict | None = None,
+        baseline: bool = False,
     ) -> VisionResult:
         perception = self.next_perception or self._perception
+        if baseline:
+            # Baseline inventories state; it never reports movement.
+            perception = VLMPerception(
+                scene=perception.scene, objects=perception.objects, events=[]
+            )
         return VisionResult(
             perception=perception,
             model="mock-vlm",

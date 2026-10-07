@@ -15,6 +15,7 @@ from datetime import datetime, timezone
 import sqlalchemy as sa
 from sqlalchemy import (
     JSON,
+    Boolean,
     DateTime,
     Float,
     ForeignKey,
@@ -123,6 +124,9 @@ class Memory(Base):
     environment: Mapped[str] = mapped_column(Text, default="")
     confidence: Mapped[float] = mapped_column(Float, default=0.0)
     embedding: Mapped[list | None] = mapped_column(_embedding_type(), nullable=True)
+    # True for the initial visual baseline memory of a camera. The baseline is
+    # the persisted semantic "before" state for all later scene-state deltas.
+    is_baseline: Mapped[bool] = mapped_column(Boolean, default=False)
     evidence_id: Mapped[uuid.UUID | None] = mapped_column(
         Uuid(as_uuid=True), nullable=True
     )

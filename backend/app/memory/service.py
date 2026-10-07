@@ -112,6 +112,7 @@ class MemoryService:
         perception: VLMPerception,
         previous_state: SceneState | None = None,
         timestamp: datetime | None = None,
+        is_baseline: bool = False,
     ) -> tuple[uuid.UUID, list[dict]]:
         ts = timestamp or datetime.now(timezone.utc)
         state = previous_state or SceneState()
@@ -126,6 +127,7 @@ class MemoryService:
             activity=perception.scene.activity,
             environment=perception.scene.environment,
             confidence=confidence,
+            is_baseline=is_baseline,
         )
 
         for obj in perception.objects:
@@ -149,7 +151,9 @@ class MemoryService:
                 status=obj.status,
             )
 
-        delta = compute_delta(state, perception)
+        # The initial baseline inventories state; it never emits change events,
+        # even if the model reports movement on first sight.
+        delta = DeltaResult() if is_baseline else compute_delta(state, perception)
         for ev in delta.events:
             self.events.add(
                 user_id=user_id,
@@ -170,7 +174,11 @@ class MemoryService:
             user_id=user_id,
             camera_id=camera_id,
             memory_id=str(memory.id),
-            extra={"objects": len(perception.objects), "events": len(delta.events)},
+            extra={
+                "objects": len(perception.objects),
+                "events": len(delta.events),
+                "is_baseline": is_baseline,
+            },
         )
         return memory.id, delta.events
 

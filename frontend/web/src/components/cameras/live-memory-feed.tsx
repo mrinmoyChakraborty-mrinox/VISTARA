@@ -20,7 +20,7 @@ function MemoryFeedItem({
   memory: Memory;
   stamped: boolean;
 }) {
-  const thumb = useEvidenceBlobUrl(memory.evidence_id);
+  const { url: thumb } = useEvidenceBlobUrl(memory.evidence_id);
 
   return (
     <div

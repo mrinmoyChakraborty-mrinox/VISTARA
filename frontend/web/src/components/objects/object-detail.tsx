@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useMemo, useState } from "react";
-import { ArrowUpDown, Copy, Link as LinkIcon, MessageCircleQuestion } from "lucide-react";
+import { ArrowUpDown, Copy, Link as LinkIcon, Loader2, MessageCircleQuestion } from "lucide-react";
 import { toast } from "sonner";
 
 import { useCamera } from "@/components/providers/camera-provider";
@@ -11,7 +11,7 @@ import { BorderBeam } from "@/components/ui-fx/border-beam";
 import { useCamerasQuery } from "@/hooks/use-cameras";
 import { useObjectHistoryQuery } from "@/hooks/use-memory";
 import { EvidenceViewer } from "@/components/memory/evidence-viewer";
-import type { ObjectObservation } from "@/lib/apiClient";
+import { getMemory, type ObjectObservation } from "@/lib/apiClient";
 import { cn } from "@/lib/utils";
 
 function CameraBadge({
@@ -26,26 +26,38 @@ function CameraBadge({
 
 function EvidenceThumb({
   observation,
+  loading,
   onOpen,
 }: {
   observation: ObjectObservation;
+  loading: boolean;
   onOpen: () => void;
 }) {
   return (
     <button
       type="button"
       onClick={onOpen}
-      aria-label={`Open evidence for ${observation.timestamp}`}
+      disabled={loading}
+      aria-label={
+        loading
+          ? "Loading evidence"
+          : `Open evidence for ${observation.timestamp}`
+      }
       style={{
         width: 72,
         height: 54,
         borderRadius: 10,
         border: "1px solid var(--line)",
         background: "linear-gradient(135deg, var(--desk), var(--soft))",
-        cursor: "pointer",
+        cursor: loading ? "wait" : "pointer",
         padding: 0,
+        display: "grid",
+        placeItems: "center",
+        color: "var(--mute)",
       }}
-    />
+    >
+      {loading && <Loader2 size={16} className="animate-spin" aria-hidden="true" />}
+    </button>
   );
 }
 
@@ -57,6 +69,33 @@ export function ObjectDetail({ name }: { name: string }) {
   const [newestFirst, setNewestFirst] = useState(true);
   const [cameraFilter, setCameraFilter] = useState<string>("all");
   const [viewerFor, setViewerFor] = useState<ObjectObservation | null>(null);
+  const [viewerEvidenceId, setViewerEvidenceId] = useState<string | null>(null);
+  const [loadingEvidenceFor, setLoadingEvidenceFor] = useState<string | null>(null);
+
+  // Object-history entries carry memory_id but no evidence_id. Resolve the
+  // evidence through the real memory endpoint when the viewer opens; a null
+  // result renders the honest "unavailable" state.
+  const openEvidence = (row: ObjectObservation) => {
+    const key = row.memory_id;
+    setLoadingEvidenceFor(key);
+    getMemory(key).then(
+      (memory) => {
+        setViewerFor(row);
+        setViewerEvidenceId(memory.evidence_id);
+        setLoadingEvidenceFor((cur) => (cur === key ? null : cur));
+      },
+      () => {
+        setViewerFor(row);
+        setViewerEvidenceId(null);
+        setLoadingEvidenceFor((cur) => (cur === key ? null : cur));
+      },
+    );
+  };
+
+  const closeEvidence = () => {
+    setViewerFor(null);
+    setViewerEvidenceId(null);
+  };
 
   const cameraNames = useMemo(() => {
     const map: Record<string, string> = {};
@@ -295,7 +334,8 @@ export function ObjectDetail({ name }: { name: string }) {
                 <EvidenceThumb
                   key={`t-${row.memory_id}-${row.timestamp}`}
                   observation={row}
-                  onOpen={() => setViewerFor(row)}
+                  loading={loadingEvidenceFor === row.memory_id}
+                  onOpen={() => openEvidence(row)}
                 />
               ))}
             </div>
@@ -308,12 +348,12 @@ export function ObjectDetail({ name }: { name: string }) {
       )}
 
       <EvidenceViewer
-        evidenceId={null}
+        evidenceId={viewerEvidenceId}
         cameraName={viewerFor ? (cameraNames[viewerFor.camera_id] ?? viewerFor.camera_id) : undefined}
         timestamp={viewerFor ? new Date(viewerFor.timestamp).toLocaleString() : undefined}
         description={viewerFor ? `${name} · ${viewerFor.location}` : undefined}
         open={viewerFor !== null}
-        onClose={() => setViewerFor(null)}
+        onClose={closeEvidence}
       />
     </div>
   );

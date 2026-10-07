@@ -27,6 +27,7 @@ def memory_to_out(memory: Memory) -> MemoryOut:
         events=[event_to_out(e) for e in getattr(memory, "events", []) or []],
         confidence=memory.confidence,
         evidence_id=memory.evidence_id,
+        is_baseline=bool(getattr(memory, "is_baseline", False)),
         created_at=memory.created_at,
     )
 

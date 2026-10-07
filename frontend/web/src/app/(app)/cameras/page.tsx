@@ -4,6 +4,7 @@ import { useState } from "react";
 import { Plus, VideoOff } from "lucide-react";
 
 import { useCamera } from "@/components/providers/camera-provider";
+import { BrandLoader } from "@/components/loader/BrandLoader";
 import { CameraCard } from "@/components/cameras/camera-card";
 import { CameraPreview } from "@/components/cameras/camera-preview";
 import { LiveMemoryFeed } from "@/components/cameras/live-memory-feed";
@@ -18,15 +19,18 @@ import {
 
 function CameraGridSkeleton() {
   return (
-    <div className="card-grid" role="status" aria-label="Loading cameras">
-      {[0, 1, 2].map((i) => (
-        <div
-          key={i}
-          className="skel"
-          style={{ height: 220, borderRadius: 22 }}
-        />
-      ))}
-    </div>
+    <>
+      <BrandLoader variant="inline" />
+      <div className="card-grid" role="status" aria-label="Loading cameras">
+        {[0, 1, 2].map((i) => (
+          <div
+            key={i}
+            className="skel"
+            style={{ height: 220, borderRadius: 22 }}
+          />
+        ))}
+      </div>
+    </>
   );
 }
 

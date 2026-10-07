@@ -1,8 +1,11 @@
 import type { Metadata, Viewport } from "next";
 import { Fraunces, Bricolage_Grotesque, JetBrains_Mono } from "next/font/google";
 import "./globals.css";
+import { AppPreloader } from "@/components/loader/AppPreloader";
 import { Providers } from "@/components/providers/providers";
 import { ThemeProvider } from "@/components/theme-provider";
+
+const THEME_SCRIPT = `(function(){try{var s=localStorage.getItem('v-theme');var t=(s==='light'||s==='dark')?s:(window.matchMedia('(prefers-color-scheme: dark)').matches?'dark':'light');document.documentElement.setAttribute('data-theme',t);}catch(e){}})();`;
 
 const fraunces = Fraunces({
   variable: "--font-fraunces",
@@ -47,6 +50,7 @@ export default function RootLayout({
       className={`${fraunces.variable} ${bricolage.variable} ${jetbrains.variable}`}
     >
       <body>
+        <script dangerouslySetInnerHTML={{ __html: THEME_SCRIPT }} />
         <ThemeProvider
           attribute="data-theme"
           defaultTheme="system"
@@ -54,7 +58,10 @@ export default function RootLayout({
           storageKey="v-theme"
           disableTransitionOnChange={false}
         >
-          <Providers>{children}</Providers>
+          <Providers>
+            <AppPreloader />
+            {children}
+          </Providers>
         </ThemeProvider>
       </body>
     </html>

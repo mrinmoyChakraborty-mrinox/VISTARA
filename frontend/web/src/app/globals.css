@@ -374,3 +374,54 @@ footer{padding:30px 0 50px;text-align:center}
 .auth2 .pillb:hover{transform:translateX(4px)}
 .auth2 .pillb i{width:26px;height:26px;border-radius:50%;background:var(--bg);color:var(--ink);display:grid;place-items:center;font-style:normal}
 @media(max-width:700px){.auth2 .rc{min-height:420px}.auth2 .inset{min-height:396px;width:70%}.auth2 .orb{top:110px}.auth2 .mk{top:210px}}
+
+/* aperture memory loader — tokens only, transform/opacity/clip-path/filter */
+.boot{--boot-size:min(240px,64vw)}
+.boot-full{position:fixed;inset:0;z-index:90;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:20px;background:color-mix(in srgb,var(--bg) 70%,transparent);backdrop-filter:blur(24px) saturate(1.2);-webkit-backdrop-filter:blur(24px) saturate(1.2);transition:opacity .6s ease,backdrop-filter .6s ease;overflow:hidden}
+@media(max-width:640px){.boot-full{backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px)}}
+.boot-inline{--boot-size:170px;position:relative;display:flex;flex-direction:column;align-items:center;gap:16px;padding:32px 16px}
+.boot[data-leaving]{opacity:0;backdrop-filter:blur(0);-webkit-backdrop-filter:blur(0)}
+.boot-stage{position:relative;width:var(--boot-size);aspect-ratio:1/1;display:grid;place-items:center;overflow:hidden}
+.boot[data-leaving] .boot-stage{transform:scale(1.12);transition:transform .6s cubic-bezier(.7,0,.2,1)}
+.boot-aperture{position:absolute;inset:0;width:100%;height:100%;transform-origin:center;animation:aperture-spin 28s linear infinite;transition:opacity .5s ease}
+.boot[data-leaving] .boot-aperture{opacity:0}
+@keyframes aperture-spin{to{transform:rotate(360deg)}}
+.boot-blades{transform-box:fill-box;transform-origin:center;animation:aperture-breathe 2.4s ease-in-out infinite}
+@keyframes aperture-breathe{50%{transform:scale(1.07)}}
+.boot-ring{fill:none;stroke:var(--line);stroke-width:2}
+.boot-ring.boot-acc{stroke:var(--acc)}
+.boot-blade{fill:none;stroke:var(--acc);stroke-width:5;stroke-linecap:round}
+.boot-lockup{position:relative;z-index:1;display:flex;flex-direction:column;align-items:center;gap:12px}
+.boot[data-leaving] .boot-lockup{transform:scale(1.08);opacity:0;transition:transform .6s cubic-bezier(.7,0,.2,1),opacity .6s ease}
+.boot-emblem{position:relative;width:64px;height:64px}
+.boot-inline .boot-emblem{width:44px;height:44px}
+.boot-emblem img{width:100%;height:100%;object-fit:contain;display:block}
+.boot-ping{position:absolute;inset:4px;border-radius:50%;box-shadow:0 0 0 0 var(--acc);animation:ping 2s infinite}
+.boot-word{position:relative;font:400 clamp(1.9rem,6vw,2.5rem)/1 var(--font-d);letter-spacing:-.02em;line-height:1}
+.boot-inline .boot-word{font-size:1.6rem}
+.boot-base{color:transparent;-webkit-text-stroke:1px var(--mute)}
+@supports not (-webkit-text-stroke:1px #000){.boot-base{color:var(--mute)}}
+.boot-fill{position:absolute;inset:0;color:var(--ink)}
+.boot-corner{position:absolute;width:26px;height:26px;border:0 solid var(--acc);animation:corner-in .5s both}
+.boot-corner.tl{top:0;left:0;border-top-width:2px;border-left-width:2px}
+.boot-corner.tr{top:0;right:0;border-top-width:2px;border-right-width:2px}
+.boot-corner.bl{bottom:0;left:0;border-bottom-width:2px;border-left-width:2px}
+.boot-corner.br{bottom:0;right:0;border-bottom-width:2px;border-right-width:2px}
+@keyframes corner-in{from{opacity:0;transform:scale(1.35)}}
+.boot-scan{position:absolute;left:6%;right:6%;height:54px;top:-60px;background:linear-gradient(transparent,color-mix(in srgb,var(--acc2) 45%,transparent),transparent);animation:boot-scan 2.4s linear infinite;pointer-events:none}
+@keyframes boot-scan{from{top:-70px}to{top:110%}}
+.boot-status{font-family:var(--font-m);font-size:.78rem;color:var(--mute);margin:0;min-height:1.2em}
+.boot-hair{width:min(280px,62vw);height:3px;border-radius:3px;background:color-mix(in srgb,var(--line) 65%,transparent);overflow:hidden}
+.boot-full .boot-hair{position:absolute;bottom:0;left:0;width:100%;border-radius:0}
+.boot-hair i{display:block;height:100%;width:0;background:linear-gradient(90deg,var(--acc2),var(--acc));transition:width .25s ease}
+.boot-hair i.ind{width:35%;animation:bar-slide 1.3s ease-in-out infinite}
+@keyframes bar-slide{0%{transform:translateX(-110%)}100%{transform:translateX(320%)}}
+/* in-app route progress: top bar + brief dot veil */
+.route-bar{position:fixed;top:0;left:0;height:3px;width:0;background:var(--acc);z-index:96;opacity:0;transition:width .25s ease-out,opacity .3s ease}
+.route-bar.on{opacity:1}
+.route-dot{position:fixed;inset:0;z-index:95;display:grid;place-items:center;background:color-mix(in srgb,var(--bg) 55%,transparent);backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);opacity:0;pointer-events:none;transition:opacity .25s ease}
+.route-dot.on{opacity:1}
+.route-pulse{width:12px;height:12px;border-radius:50%;background:var(--acc);box-shadow:0 0 0 0 var(--acc);animation:ping 1s infinite}
+/* page content blur-fade when the boot shutter opens */
+body.boot-flash main{animation:boot-in .7s cubic-bezier(.2,.7,.2,1)}
+@keyframes boot-in{from{opacity:.35;filter:blur(8px)}}

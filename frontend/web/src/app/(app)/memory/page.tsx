@@ -4,6 +4,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { SearchX } from "lucide-react";
 
 import { useCamera } from "@/components/providers/camera-provider";
+import { BrandLoader } from "@/components/loader/BrandLoader";
 import { MemoryCard } from "@/components/memory/memory-card";
 import {
   applyMemoryFilters,
@@ -93,11 +94,14 @@ export default function MemoryPage() {
       </div>
 
       {memories.isPending ? (
-        <div className="grid" style={{ gap: 14 }} role="status" aria-label="Loading memories">
-          {[0, 1, 2].map((i) => (
-            <div key={i} className="skel" style={{ height: 300, borderRadius: 22 }} />
-          ))}
-        </div>
+        <>
+          <BrandLoader variant="inline" />
+          <div className="grid" style={{ gap: 14 }} role="status" aria-label="Loading memories">
+            {[0, 1, 2].map((i) => (
+              <div key={i} className="skel" style={{ height: 300, borderRadius: 22 }} />
+            ))}
+          </div>
+        </>
       ) : memories.isError ? (
         <div role="alert" className="panel" style={{ display: "grid", gap: 10, justifyItems: "start" }}>
           <b>Memories could not be loaded.</b>

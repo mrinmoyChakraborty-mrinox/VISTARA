@@ -91,6 +91,24 @@ class Settings:
         default_factory=lambda: _getint("POST_EVENT_SECONDS", 1)
     )
 
+    # VLM payload resolutions (Stage 4 addition — all max-side px, JPEG q=85 default).
+    # Pipeline sends: 1 high-res current frame + 1-2 lower-res context frames + change-region crop.
+    vlm_main_max_side: int = field(
+        default_factory=lambda: _getint("VLM_MAIN_MAX_SIDE", 1024)
+    )
+    vlm_context_max_side: int = field(
+        default_factory=lambda: _getint("VLM_CONTEXT_MAX_SIDE", 512)
+    )
+    vlm_crop_max_side: int = field(
+        default_factory=lambda: _getint("VLM_CROP_MAX_SIDE", 768)
+    )
+    vlm_jpeg_quality: int = field(
+        default_factory=lambda: _getint("VLM_JPEG_QUALITY", 85)
+    )
+    vlm_crop_padding: int = field(
+        default_factory=lambda: _getint("VLM_CROP_PADDING_PX", 24)
+    )
+
     mock_mode: bool = field(default_factory=lambda: _getbool("MOCK_MODE", False))
 
 

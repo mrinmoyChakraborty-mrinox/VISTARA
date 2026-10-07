@@ -69,11 +69,14 @@ def _register_pull_sources() -> None:
     from backend.app.cameras.hls import HLSCameraSource
     from backend.app.cameras.mjpeg import MJPEGCameraSource
     from backend.app.cameras.rtsp import RTSPCameraSource
+    from backend.app.cameras.video import VideoFileCameraSource
 
     register("rtsp", RTSPCameraSource)
     register("rtsps", RTSPCameraSource)
     register("hls", HLSCameraSource)
     register("mjpeg", MJPEGCameraSource)
+    # Recorded-video demo source (local mode). Same pipeline, file-backed.
+    register("video_file", VideoFileCameraSource)
 
 
 _register_pull_sources()

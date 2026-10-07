@@ -33,6 +33,9 @@ configure_logging()
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    # Authoritative mode check first: unknown modes and under-configured live
+    # mode fail fast instead of silently downgrading.
+    settings.validate_mode()
     # Local SQLite (dev/mock/test): create tables automatically.
     # Supabase/Postgres uses SQL migrations (supabase/migrations/0001_init.sql).
     if settings.database_url.startswith("sqlite"):
@@ -56,7 +59,12 @@ async def lifespan(app: FastAPI):
         log_event(
             "supabase_not_configured",
             status="error",
-            message="SUPABASE_URL/DATABASE_URL missing: running on local fallback (no real Auth/DB).",
+            message=(
+                "Supabase is not configured: "
+                f"SUPABASE_URL={'set' if settings.supabase_url else 'missing'}, "
+                f"DATABASE_URL={'set' if settings.database_url else 'missing'}. "
+                "Running on local fallback (no real Auth/DB)."
+            ),
         )
     yield
 

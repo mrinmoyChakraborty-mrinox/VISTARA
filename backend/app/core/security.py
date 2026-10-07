@@ -1,7 +1,13 @@
-"""Authentication: verify Supabase JWT, expose the current user.
+"""Authentication: verify Supabase JWT (live) or local demo tokens (local).
 
-The authenticated identity is ALWAYS derived server-side from the verified JWT.
-Client-supplied user_id is never trusted (enforced in repositories too).
+The authenticated identity is ALWAYS derived server-side from the verified
+credential. Client-supplied user_id is never trusted (enforced in
+repositories too).
+
+LOCAL (VISTARA_MODE=local): deterministic demo auth, no Supabase project.
+"demo-token" maps to the single demo user; "local:<user_id>" maps to an
+explicit local user (isolation). This is NOT Supabase Auth and never pretends
+to be. LIVE (VISTARA_MODE=live): Supabase JWT only.
 """
 
 from __future__ import annotations
@@ -29,6 +35,25 @@ class AuthError(HTTPException):
             detail=detail,
             headers={"WWW-Authenticate": "Bearer"},
         )
+
+
+LOCAL_DEMO_USER_ID = "demo-user"
+LOCAL_DEMO_EMAIL = "demo@visual-memory.local"
+
+
+def _local_user(token: str) -> CurrentUser | None:
+    """Local-mode credential check. Returns None when the token is not local."""
+    if token == "demo-token":
+        return CurrentUser(id=LOCAL_DEMO_USER_ID, email=LOCAL_DEMO_EMAIL)
+    if token.startswith("local:"):
+        user_id = token.split(":", 1)[1].strip()
+        if user_id:
+            return CurrentUser(id=user_id, email=None)
+    return None
+
+
+def _local_auth_enabled() -> bool:
+    return settings.mock_mode or settings.is_local
 
 
 def _decode_supabase_jwt(token: str) -> dict[str, Any]:
@@ -64,11 +89,12 @@ async def get_current_user(
     token = authorization.split(" ", 1)[1].strip()
 
     # Demo/mock mode: a static token maps to a single seeded demo user.
-    if settings.mock_mode:
-        if token == "demo-token":
-            return CurrentUser(id="demo-user", email="demo@visual-memory.local")
+    if _local_auth_enabled():
+        local = _local_user(token)
+        if local is not None:
+            return local
         # In mock mode also accept a "mock:<user_id>" token for isolation tests.
-        if token.startswith("mock:"):
+        if settings.mock_mode and token.startswith("mock:"):
             return CurrentUser(id=token.split(":", 1)[1], email=None)
 
     claims = _decode_supabase_jwt(token)
@@ -89,11 +115,15 @@ def require_user(user: CurrentUser = Depends(get_current_user)) -> CurrentUser:
 # ---------------------------------------------------------------- helpers
 def user_from_ws_token(token: str | None) -> CurrentUser:
     """WebSocket auth: browsers cannot set headers, so the JWT rides the query string."""
-    if settings.mock_mode:
+    if _local_auth_enabled():
         if token in (None, "demo-token"):
-            return CurrentUser(id="demo-user", email="demo@visual-memory.local")
-        if token and token.startswith("mock:"):
-            return CurrentUser(id=token.split(":", 1)[1])
+            return CurrentUser(id=LOCAL_DEMO_USER_ID, email=LOCAL_DEMO_EMAIL)
+        if token:
+            local = _local_user(token)
+            if local is not None:
+                return local
+            if settings.mock_mode and token.startswith("mock:"):
+                return CurrentUser(id=token.split(":", 1)[1])
     if not token:
         raise AuthError("Missing token.")
     claims = _decode_supabase_jwt(token)

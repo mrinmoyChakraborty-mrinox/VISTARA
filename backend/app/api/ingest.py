@@ -91,6 +91,7 @@ def ingest_bgr(
     now: float | None = None,
     count_frame: bool = True,
     offer: bool = True,
+    source_ts=None,
 ) -> dict:
     """Shared gate→buffer→offer core for every source type.
 
@@ -99,12 +100,14 @@ def ingest_bgr(
     offer=False still pushes to the buffer and runs the gate (scores feed the
     baseline stability check) but never enqueues a normal change context —
     used while the initial baseline is not ready yet.
+    source_ts carries source wall time (recorded video); None keeps live
+    processing-time semantics exactly.
     Returns {"ok": True, "fired": bool, "score": float} or {"ok","error"} — never raises.
     """
     now = now if now is not None else time.monotonic()
     if count_frame:
         runtime.source.note_frame()
-    runtime.buffer.push(bgr, now)
+    runtime.buffer.push(bgr, now, source_ts=source_ts)
     runtime.frames_ingested += 1
 
     decision = runtime.gate.update(bgr, now)
@@ -172,7 +175,7 @@ def ingest_jpeg(
 
 
 def ingest_pull_frame(runtime, nframe, user_id: str, offer: bool = True) -> dict:
-    """Bridge for pull sources (RTSP/HLS/MJPEG): NormalizedFrame -> shared pipeline."""
+    """Bridge for pull sources (RTSP/HLS/MJPEG/video file): NormalizedFrame -> shared pipeline."""
     return ingest_bgr(
         runtime,
         nframe.frame,
@@ -181,4 +184,5 @@ def ingest_pull_frame(runtime, nframe, user_id: str, offer: bool = True) -> dict
         now=nframe.timestamp,
         count_frame=False,
         offer=offer,
+        source_ts=getattr(nframe, "source_ts", None),
     )

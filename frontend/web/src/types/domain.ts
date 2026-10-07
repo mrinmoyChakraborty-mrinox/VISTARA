@@ -11,7 +11,8 @@ export type CameraSourceType =
   | "rtsp"
   | "rtsps"
   | "hls"
-  | "mjpeg";
+  | "mjpeg"
+  | "video_file";
 
 export interface Camera {
   id: string;

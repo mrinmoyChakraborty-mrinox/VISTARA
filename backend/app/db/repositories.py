@@ -39,6 +39,23 @@ def _as_uuid(value: str | uuid.UUID) -> uuid.UUID:
         return uuid.uuid5(uuid.NAMESPACE_URL, f"visual-memory:{value}")
 
 
+def _json_safe(value):
+    """Recursively convert UUIDs/datetimes/sets to JSON-serializable forms."""
+    import datetime
+
+    if isinstance(value, uuid.UUID):
+        return str(value)
+    if isinstance(value, (datetime.datetime, datetime.date, datetime.time)):
+        return value.isoformat()
+    if isinstance(value, dict):
+        return {str(k): _json_safe(v) for k, v in value.items()}
+    if isinstance(value, (list, tuple)):
+        return [_json_safe(v) for v in value]
+    if isinstance(value, (set, frozenset)):
+        return [_json_safe(v) for v in sorted(value, key=repr)]
+    return value
+
+
 class ProfileRepository:
     def __init__(self, db: Session):
         self.db = db
@@ -458,7 +475,10 @@ class ChatRepository:
             conversation_id=_as_uuid(conversation_id),
             role=role,
             content=content,
-            tool_calls=tool_calls,
+            # Tool results embed ORM-derived dicts (UUIDs, datetimes) that no
+            # JSON column accepts. Normalize once at the persistence boundary
+            # so chat history can never 500 on SQLite or Postgres JSON.
+            tool_calls=_json_safe(tool_calls),
         )
         self.db.add(message)
         self.db.flush()

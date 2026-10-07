@@ -9,8 +9,12 @@ import type {
   MemoryEvent,
   MemoryObject,
 } from "@/types/domain";
-import { getEnv } from "@/lib/env";
-import { getAccessToken, getSupabaseClient } from "@/lib/supabaseClient";
+import { getEnv, getVistaMode } from "@/lib/env";
+import {
+  getAccessToken,
+  getSupabaseClient,
+  setLocalToken,
+} from "@/lib/supabaseClient";
 
 export interface ApiError {
   status: number;
@@ -53,19 +57,52 @@ function notifyUnauthorized() {
 export async function apiFetch<T>(
   path: string,
   init?: RequestInit,
-  opts?: { token?: string | null; retried?: boolean },
+  opts?: { token?: string | null; retried?: boolean; timeoutMs?: number },
 ): Promise<T> {
   const env = getEnv();
   const token = opts?.token ?? (await getAccessToken());
-  const res = await fetch(`${env.backendUrl}${path}`, {
-    ...init,
-    headers: {
-      "Content-Type": "application/json",
-      ...(token ? { Authorization: `Bearer ${token}` } : {}),
-      ...(init?.headers ?? {}),
-    },
-  });
+  // Every loader in the UI is bounded by this: a hung backend becomes an
+  // error with retry instead of a spinner that never stops.
+  const controller = new AbortController();
+  const timer = setTimeout(
+    () => controller.abort(),
+    opts?.timeoutMs ?? 30_000,
+  );
+  let res: Response;
+  try {
+    res = await fetch(`${env.backendUrl}${path}`, {
+      ...init,
+      signal: controller.signal,
+      headers: {
+        "Content-Type": "application/json",
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        ...(init?.headers ?? {}),
+      },
+    });
+  } catch (err) {
+    clearTimeout(timer);
+    if (err instanceof DOMException && err.name === "AbortError") {
+      throw {
+        status: 0,
+        code: "timeout",
+        message: "The backend did not respond in time. Retry when it is back.",
+      } as ApiError;
+    }
+    throw {
+      status: 0,
+      code: "unreachable",
+      message: "The backend could not be reached. Check the URL and retry.",
+    } as ApiError;
+  }
+  clearTimeout(timer);
   if (res.status === 401 && !opts?.retried) {
+    // Local demo mode has no Supabase session to refresh: drop the local
+    // credential and bounce to login.
+    if (getVistaMode() === "local") {
+      setLocalToken(null);
+      notifyUnauthorized();
+      throw { status: 401, message: "Local demo session expired. Log in again." } as ApiError;
+    }
     try {
       const supabase = getSupabaseClient();
       const { data } = await supabase.auth.refreshSession();
@@ -110,7 +147,11 @@ export function listCameras() {
   return apiFetch<Camera[]>("/api/cameras");
 }
 
-export function createCamera(body: { name: string; source_type: "browser" }) {
+export function createCamera(body: {
+  name: string;
+  source_type: string;
+  config?: Record<string, unknown>;
+}) {
   return apiFetch<Camera>("/api/cameras", {
     method: "POST",
     body: JSON.stringify(body),
@@ -232,10 +273,16 @@ export interface ChatResponse {
 }
 
 export function postChat(body: { conversation_id?: string; message: string }) {
-  return apiFetch<ChatResponse>("/api/chat", {
-    method: "POST",
-    body: JSON.stringify(body),
-  });
+  // GPT-OSS reasons over retrieved memories; allow a longer budget before the
+  // chat loader gives up.
+  return apiFetch<ChatResponse>(
+    "/api/chat",
+    {
+      method: "POST",
+      body: JSON.stringify(body),
+    },
+    { timeoutMs: 180_000 },
+  );
 }
 
 // Evidence images are fetched with the bearer token and rendered as a blob
@@ -245,9 +292,23 @@ export async function fetchEvidenceBlob(
 ): Promise<{ url: string; revoke: () => void }> {
   const env = getEnv();
   const token = await getAccessToken();
-  const res = await fetch(`${env.backendUrl}/api/evidence/${id}`, {
-    headers: token ? { Authorization: `Bearer ${token}` } : {},
-  });
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), 30_000);
+  let res: Response;
+  try {
+    res = await fetch(`${env.backendUrl}/api/evidence/${id}`, {
+      headers: token ? { Authorization: `Bearer ${token}` } : {},
+      signal: controller.signal,
+    });
+  } catch {
+    clearTimeout(timer);
+    throw {
+      status: 0,
+      code: "unreachable",
+      message: "Evidence could not be loaded.",
+    } as ApiError;
+  }
+  clearTimeout(timer);
   if (!res.ok) throw await toApiError(res);
   const contentType = res.headers.get("content-type") ?? "";
   if (contentType.includes("application/json")) {

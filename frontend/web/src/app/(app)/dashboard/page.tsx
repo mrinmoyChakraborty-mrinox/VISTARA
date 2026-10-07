@@ -6,11 +6,11 @@ import { ArrowRight, Camera as CameraIcon, History, MessagesSquare } from "lucid
 
 import { useCamera } from "@/components/providers/camera-provider";
 import { AnimatedList } from "@/components/ui-fx/animated-list";
-import { BorderBeam } from "@/components/ui-fx/border-beam";
 import { NumberTicker } from "@/components/ui-fx/number-ticker";
 import { StatusPill } from "@/components/ui-fx/status-pill";
 import { useCamerasQuery, useMemoriesQuery } from "@/hooks/use-cameras";
 import { useEventsQuery } from "@/hooks/use-memory";
+import { isEnvConfigured, missingEnvVars } from "@/lib/env";
 import type { CameraStatus } from "@/types/domain";
 
 const STATUS_ORDER: CameraStatus[] = ["active", "idle", "disconnected", "error"];
@@ -44,6 +44,9 @@ export default function DashboardPage() {
   const memories = useMemoriesQuery();
   const events = useEventsQuery();
   const [question, setQuestion] = useState("");
+  // Disabled queries stay pending forever — say so instead of shimmering.
+  const envReady = isEnvConfigured();
+  const envMissing = missingEnvVars();
 
   const counts = useMemo(() => {
     const base: Record<CameraStatus, number> = {
@@ -52,7 +55,11 @@ export default function DashboardPage() {
       disconnected: 0,
       error: 0,
     };
-    for (const camera of cameras.data ?? []) base[camera.status] += 1;
+    for (const camera of cameras.data ?? []) {
+      // The backend may report statuses outside the known set; ignore those
+      // instead of producing NaN counts.
+      if (camera.status in base) base[camera.status] += 1;
+    }
     return base;
   }, [cameras.data]);
 
@@ -98,8 +105,19 @@ export default function DashboardPage() {
         </p>
       </div>
 
-      <BorderBeam radius={24}>
-        <div className="panel" style={{ border: 0, boxShadow: "none", background: "transparent" }}>
+      {!envReady && (
+        <div role="alert" className="panel" style={{ display: "grid", gap: 10, justifyItems: "start" }}>
+          <b>Backend is not configured.</b>
+          <p className="mono mute" style={{ fontSize: ".85rem" }}>
+            Missing: {envMissing.join(", ")}. Copy frontend/web/.env.example to
+            .env.local (local demo needs only the backend URLs) and restart the
+            dev server.
+          </p>
+        </div>
+      )}
+
+      <div className="panel">
+        <div style={{ border: 0, boxShadow: "none", background: "transparent" }}>
           <div
             className="flex flex-wrap items-center justify-between"
             style={{ gap: 12, marginBottom: 16 }}
@@ -152,7 +170,7 @@ export default function DashboardPage() {
             {lastMemory ? ` · last memory ${lastMemory.id.slice(0, 8)}` : ""}
           </p>
         </div>
-      </BorderBeam>
+      </div>
 
       <div className="panel">
         <b className="mono mute">QUICK ASK</b>

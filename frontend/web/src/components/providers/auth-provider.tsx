@@ -13,8 +13,13 @@ import {
 } from "react";
 
 import { UNAUTHORIZED_EVENT } from "@/lib/apiClient";
-import { isEnvConfigured, missingEnvVars } from "@/lib/env";
-import { getSupabaseClient } from "@/lib/supabaseClient";
+import { getVistaMode, isEnvConfigured, missingEnvVars } from "@/lib/env";
+import {
+  getLocalToken,
+  getSupabaseClient,
+  LOCAL_DEMO_TOKEN,
+  setLocalToken,
+} from "@/lib/supabaseClient";
 
 interface AuthContextValue {
   user: User | null;
@@ -29,6 +34,8 @@ interface AuthContextValue {
     email: string,
     password: string,
   ) => Promise<{ error: string | null; needsConfirmation: boolean }>;
+  /** Local demo login (local mode only): deterministic demo user, no Supabase. */
+  signInLocal: () => void;
   signOut: () => Promise<void>;
 }
 
@@ -53,6 +60,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setConfigError(
           `Missing ${missingEnvVars().join(", ")}. The app shell renders, but auth and the backend stay unavailable.`,
         );
+        setLoading(false);
+        return;
+      }
+      // Local demo mode: restore the stored local credential; there is no
+      // Supabase session to read.
+      if (getVistaMode() === "local") {
+        if (cancelled) return;
+        const token = getLocalToken();
+        if (token) {
+          setUser(localDemoUser());
+          setAccessToken(token);
+        }
         setLoading(false);
         return;
       }
@@ -102,12 +121,23 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const signOut = useCallback(async () => {
     try {
-      await getSupabaseClient().auth.signOut();
+      if (getVistaMode() === "local") {
+        setLocalToken(null);
+      } else {
+        await getSupabaseClient().auth.signOut();
+      }
     } finally {
       setSession(null);
       setUser(null);
       setAccessToken(null);
     }
+  }, []);
+
+  const signInLocal = useCallback(() => {
+    setLocalToken(LOCAL_DEMO_TOKEN);
+    setSession(null);
+    setUser(localDemoUser());
+    setAccessToken(LOCAL_DEMO_TOKEN);
   }, []);
 
   // API layer signals unrecoverable 401s here; bounce back to /login.
@@ -133,12 +163,21 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       configError,
       signIn,
       signUp,
+      signInLocal,
       signOut,
     }),
-    [user, session, accessToken, loading, configured, configError, signIn, signUp, signOut],
+    [user, session, accessToken, loading, configured, configError, signIn, signUp, signInLocal, signOut],
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
+}
+
+/** Minimal demo identity for local mode (display only; auth is the token). */
+function localDemoUser(): User {
+  return {
+    id: "demo-user",
+    email: "demo@visual-memory.local",
+  } as unknown as User;
 }
 
 export function useAuth(): AuthContextValue {

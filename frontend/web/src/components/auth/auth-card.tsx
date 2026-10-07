@@ -12,6 +12,10 @@ const GOOGLE_ENABLED =
   typeof process !== "undefined" &&
   process.env.NEXT_PUBLIC_ENABLE_GOOGLE === "true";
 
+const LOCAL_MODE =
+  typeof process !== "undefined" &&
+  (process.env.NEXT_PUBLIC_VISTARA_MODE ?? "local") !== "live";
+
 export function AuthCard({
   mode,
   next,
@@ -22,7 +26,7 @@ export function AuthCard({
   oauthError: string | null;
 }) {
   const router = useRouter();
-  const { user, loading, signIn, signUp, configured, configError } = useAuth();
+  const { user, loading, signIn, signUp, signInLocal, configured, configError } = useAuth();
 
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -292,6 +296,23 @@ export function AuthCard({
         </button>
       </div>
       <div className="foot">Please keep your session secure.</div>
+      {LOCAL_MODE && (
+        <div style={{ marginTop: 12, display: "grid", gap: 8 }}>
+          <button
+            type="button"
+            className="g"
+            style={{ justifySelf: "start" }}
+            onClick={() => {
+              signInLocal();
+            }}
+          >
+            <i>→</i>Continue with local demo
+          </button>
+          <p className="sub" style={{ margin: 0 }}>
+            Local demo mode: deterministic demo user, no Supabase project.
+          </p>
+        </div>
+      )}
     </form>
   );
 }

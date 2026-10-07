@@ -7,7 +7,6 @@ tests and offline dev working with no cloud dependency.
 
 from __future__ import annotations
 
-import os
 from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
@@ -17,7 +16,16 @@ from backend.app.core.logging import log_event
 from backend.app.db.repositories import EvidenceRepository
 from backend.app.db.session import session_scope
 
-LOCAL_EVIDENCE_DIR = Path(os.getenv("EVIDENCE_DIR", "./data/evidence"))
+
+def local_evidence_dir() -> Path:
+    # Legacy EVIDENCE_DIR is honored when LOCAL_EVIDENCE_DIR is unset.
+    import os
+
+    if not settings.local_evidence_dir.strip():
+        legacy = os.getenv("EVIDENCE_DIR", "").strip()
+        if legacy:
+            return Path(legacy)
+    return Path(settings.local_evidence_dir or "./data/evidence")
 
 
 @dataclass
@@ -70,7 +78,7 @@ class EvidenceService:
                 {"content-type": "image/jpeg", "upsert": "true"},
             )
         else:
-            local = LOCAL_EVIDENCE_DIR / path
+            local = local_evidence_dir() / path
             local.parent.mkdir(parents=True, exist_ok=True)
             local.write_bytes(jpeg)
         log_event(

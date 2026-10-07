@@ -26,7 +26,7 @@ from backend.app.perception.gate import GateConfig
 
 router = APIRouter(prefix="/api/cameras", tags=["cameras"])
 
-PULL_SOURCE_TYPES = {"rtsp", "rtsps", "hls", "mjpeg"}
+PULL_SOURCE_TYPES = {"rtsp", "rtsps", "hls", "mjpeg", "video_file"}
 
 
 class CameraIn(BaseModel):
@@ -60,7 +60,8 @@ def _to_out(camera) -> CameraOut:
 
 def _validate_camera_url(source_type: str, config: dict) -> None:
     """Eager SSRF-policy check for network cameras (also enforced at connect)."""
-    if (source_type or "").lower() not in PULL_SOURCE_TYPES:
+    stype = (source_type or "").lower()
+    if stype not in PULL_SOURCE_TYPES or stype == "video_file":
         return
     url = (config or {}).get("url") or ""
     try:
@@ -69,6 +70,19 @@ def _validate_camera_url(source_type: str, config: dict) -> None:
         )
     except StreamURLRejected as exc:
         raise HTTPException(status_code=422, detail=f"stream URL rejected: {exc}")
+
+
+def _validate_video_config(source_type: str, config: dict) -> None:
+    """Eager check for recorded-video cameras: the file must open in cv2."""
+    if (source_type or "").lower() != "video_file":
+        return
+    from backend.app.cameras.video import resolve_video_path, video_metadata
+
+    try:
+        path = resolve_video_path((config or {}).get("path"))
+        video_metadata(path)
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=f"demo video rejected: {exc}")
 
 
 @router.get("", response_model=list[CameraOut])
@@ -85,6 +99,7 @@ def create_camera(
     db: Session = Depends(get_db),
 ):
     _validate_camera_url(body.source_type, body.config)
+    _validate_video_config(body.source_type, body.config)
     camera = CameraRepository(db).create(
         user.id, body.name, body.source_type, body.config
     )
@@ -206,6 +221,34 @@ def camera_state(
         },
         # Additive runtime health (None when the source is not running here).
         "runtime": manager.health(camera_id),
+    }
+
+
+@router.post("/{camera_id}/reset-baseline")
+def reset_baseline(
+    camera_id: str,
+    user: CurrentUser = Depends(require_user),
+    db: Session = Depends(get_db),
+):
+    """Clear the CURRENT runtime baseline state for repeatable demos.
+
+    Historical memories are kept. The next ingested frames establish a fresh
+    baseline instead of deriving deltas against the old one.
+    """
+    from backend.app.perception.baseline import BaselineStatus, BaselineTracker
+
+    camera = CameraRepository(db).get(user.id, camera_id)
+    if camera is None:
+        raise HTTPException(status_code=404, detail="Camera not found")
+    runtime = manager.get(camera_id)
+    if runtime is None or runtime.source.metadata.user_id != user.id:
+        raise HTTPException(status_code=404, detail="Camera is not running here")
+    runtime.baseline = BaselineTracker()
+    log_event("baseline_reset", status="ok", user_id=user.id, camera_id=camera_id)
+    return {
+        "camera_id": camera_id,
+        "baseline": BaselineStatus.PENDING.value,
+        "memories_kept": True,
     }
 
 

@@ -343,6 +343,13 @@ class CameraManager:
 
                     if memory_id is not None:
                         runtime.baseline.mark_ready(memory_id)
+                        log_event(
+                            "baseline_ready",
+                            status="ok",
+                            user_id=ctx.user_id,
+                            camera_id=ctx.camera_id,
+                            extra={"memory_id": memory_id},
+                        )
                     else:
                         runtime.baseline.mark_attempt_failed(
                             "vlm_failed", _time.monotonic()

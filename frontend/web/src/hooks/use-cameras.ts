@@ -50,8 +50,11 @@ export function useMemoriesQuery() {
 export function useCreateCamera() {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: (body: { name: string; source_type: "browser" }) =>
-      createCamera(body),
+    mutationFn: (body: {
+      name: string;
+      source_type: string;
+      config?: Record<string, unknown>;
+    }) => createCamera(body),
     onSuccess: (camera) => {
       void queryClient.invalidateQueries({ queryKey: ["cameras"] });
       toast.success("Camera added", { description: camera.name });

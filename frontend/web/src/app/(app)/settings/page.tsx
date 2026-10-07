@@ -285,22 +285,43 @@ function EmbeddingSection() {
             <b style={{ width: `${stats.progress}%`, animation: "none" }} />
           </div>
           <p className="mono mute">
-            First load · {stats.progress}%{stats.progressFile ? ` · ${stats.progressFile}` : ""}
+            {stats.progress >= 100 ? (
+              <>Downloaded 100% · initializing model (up to a minute on CPU, then the badge flips to ready)…</>
+            ) : (
+              <>First load · {stats.progress}%{stats.progressFile ? ` · ${stats.progressFile}` : ""}</>
+            )}
           </p>
         </div>
+      )}
+      {stats.modelState === "ready" && (
+        <p role="status" className="mono" style={{ color: "var(--acc)" }}>
+          Model ready — memories index automatically.
+        </p>
       )}
       {stats.modelState === "error" && (
         <p role="alert" className="mono" style={{ color: "#c4572f" }}>
           The embedding model could not load. Memories and chat keep working
           without search vectors.
+          {stats.lastError && (
+            <span style={{ display: "block", marginTop: 4, fontSize: ".8rem" }}>
+              Reason: {stats.lastError}
+            </span>
+          )}
         </p>
       )}
-      <div>
-        <button type="button" className="btn" onClick={() => stats.reload()}>
+      <div className="flex flex-wrap" style={{ gap: 8 }}>
+        <button type="button" className="btn shimmer" onClick={() => stats.warm()}>
           <Download size={15} aria-hidden="true" />
+          Pre-download model
+        </button>
+        <button type="button" className="btn" onClick={() => stats.reload()}>
           Re-download model
         </button>
       </div>
+      <p className="mute" style={{ fontSize: ".85rem" }}>
+        Pre-download once before the demo over good network: the model is
+        cached in the browser, so later memories index instantly.
+      </p>
     </div>
   );
 }

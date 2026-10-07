@@ -26,10 +26,29 @@ class Settings(BaseSettings):
     # ------------------------------------------------------------------ app
     app_env: str = Field(default="development", alias="APP_ENV")
     log_level: str = Field(default="INFO", alias="LOG_LEVEL")
+    # Authoritative runtime mode. LOCAL = SQLite + local evidence + local auth
+    # (AI still uses real Groq providers when GROQ_API_KEY is set; LOCAL != MOCK).
+    # LIVE = Supabase Auth/Postgres/pgvector/Storage with fail-fast validation.
+    vistara_mode: str = Field(default="local", alias="VISTARA_MODE")
     # Comma-separated browser origins allowed to call the API + open sockets
     # in non-development environments (e.g. the deployed frontend). Empty
     # preserves the previous behavior (no browser origins in prod).
     cors_origins: str = Field(default="", alias="CORS_ORIGINS")
+
+    # ------------------------------------------------- local demo (VISTARA_MODE=local)
+    # Persistent SQLite for the local demo (DATABASE_URL wins when set).
+    local_database_url: str = Field(default="", alias="LOCAL_DATABASE_URL")
+    # Local evidence directory for the local demo.
+    local_evidence_dir: str = Field(
+        default="./data/evidence", alias="LOCAL_EVIDENCE_DIR"
+    )
+    # Recorded-video demo source (./video.mp4 at repo root unless overridden).
+    demo_video_path: str = Field(default="./video.mp4", alias="DEMO_VIDEO_PATH")
+    # Demo playback speed multiplier (1.0 = real-time). Source timestamps are
+    # preserved regardless of speed.
+    video_playback_speed: float = Field(default=1.0, alias="VIDEO_PLAYBACK_SPEED")
+    # Loop the recorded video at EOF (same logical camera, no duplicate baseline).
+    video_loop: bool = Field(default=False, alias="VIDEO_LOOP")
 
     # ------------------------------------------------------------- supabase
     supabase_url: str = Field(default="", alias="SUPABASE_URL")
@@ -129,7 +148,52 @@ class Settings(BaseSettings):
 
     @property
     def database_configured(self) -> bool:
-        return bool(self.database_url)
+        return bool(self.effective_database_url)
+
+    @property
+    def is_local(self) -> bool:
+        return self.vistara_mode.strip().lower() == "local"
+
+    @property
+    def is_live(self) -> bool:
+        return self.vistara_mode.strip().lower() == "live"
+
+    @property
+    def effective_database_url(self) -> str:
+        """DATABASE_URL wins; then LOCAL_DATABASE_URL; then the local default
+        file (local mode only). Live mode never silently falls back to SQLite."""
+        if self.database_url:
+            return self.database_url
+        if self.local_database_url:
+            return self.local_database_url
+        if self.is_local:
+            return "sqlite:///./data/vistara.db"
+        return ""
+
+    def validate_mode(self) -> None:
+        """Fail fast on unknown modes and under-configured live mode."""
+        mode = self.vistara_mode.strip().lower()
+        if mode not in ("local", "live"):
+            raise RuntimeError(
+                f"VISTARA_MODE={self.vistara_mode!r} is invalid (expected 'local' or 'live')."
+            )
+        if mode == "live":
+            missing = [
+                name
+                for name, value in (
+                    ("SUPABASE_URL", self.supabase_url),
+                    ("SUPABASE_ANON_KEY", self.supabase_anon_key),
+                    ("SUPABASE_JWT_SECRET", self.supabase_jwt_secret),
+                    ("DATABASE_URL", self.database_url),
+                )
+                if not value
+            ]
+            if missing:
+                raise RuntimeError(
+                    "VISTARA_MODE=live requires " + ", ".join(missing) + "."
+                )
+            if self.effective_database_url.startswith("sqlite"):
+                raise RuntimeError("VISTARA_MODE=live refuses SQLite DATABASE_URL.")
 
 
 @lru_cache

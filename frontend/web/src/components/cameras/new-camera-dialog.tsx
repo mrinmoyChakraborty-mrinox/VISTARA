@@ -8,12 +8,16 @@ import { useCreateCamera } from "@/hooks/use-cameras";
 
 function DialogContent({ onClose }: { onClose: () => void }) {
   const [name, setName] = useState("");
+  const [sourceType, setSourceType] = useState("browser");
+  const localMode =
+    typeof process !== "undefined" &&
+    (process.env.NEXT_PUBLIC_VISTARA_MODE ?? "local") !== "live";
   const create = useCreateCamera();
 
   const onSubmit = (e: FormEvent) => {
     e.preventDefault();
     create.mutate(
-      { name: name.trim(), source_type: "browser" },
+      { name: name.trim(), source_type: sourceType },
       { onSuccess: () => onClose() },
     );
   };
@@ -46,8 +50,9 @@ function DialogContent({ onClose }: { onClose: () => void }) {
           New camera
         </h3>
         <p className="mute" style={{ marginTop: 6, fontSize: ".92rem" }}>
-          Browser cameras stream from this device. Nothing leaves the browser
-          until the local gate sees motion.
+          {sourceType === "video_file"
+            ? "Recorded demo video plays on the server through the same watch–notice–remember loop."
+            : "Browser cameras stream from this device. Nothing leaves the browser until the local gate sees motion."}
         </p>
         <form onSubmit={onSubmit} style={{ display: "grid", gap: 14, marginTop: 18 }}>
           <div className="auth-field">
@@ -64,7 +69,18 @@ function DialogContent({ onClose }: { onClose: () => void }) {
           </div>
           <div className="auth-field">
             <label htmlFor="camera-source">Source type</label>
-            <input id="camera-source" value="browser" readOnly aria-readonly="true" />
+            {localMode ? (
+              <select
+                id="camera-source"
+                value={sourceType}
+                onChange={(e) => setSourceType(e.target.value)}
+              >
+                <option value="browser">browser — this device camera</option>
+                <option value="video_file">video_file — recorded demo video</option>
+              </select>
+            ) : (
+              <input id="camera-source" value="browser" readOnly aria-readonly="true" />
+            )}
           </div>
           <FormError
             message={

@@ -15,6 +15,8 @@ interface QueueState {
   modelState: "idle" | "loading" | "ready" | "error";
   progress: number;
   progressFile: string;
+  /** Last human-readable failure reason (worker, download, timeout). */
+  lastError: string;
 }
 
 type Listener = (state: QueueState) => void;
@@ -25,6 +27,7 @@ const state: QueueState = {
   modelState: "idle",
   progress: 0,
   progressFile: "",
+  lastError: "",
 };
 
 const listeners = new Set<Listener>();
@@ -45,6 +48,7 @@ function failPending(id: string, err: Error) {
   pending.delete(id);
   clearTimeout(job.timer);
   state.statusById[job.memoryId] = "error";
+  if (job.memoryId !== "__warmup__") state.lastError = err.message;
   emit();
   job.reject(err);
 }
@@ -84,20 +88,26 @@ function ensureWorker(): Worker | null {
   worker.onmessage = (event: MessageEvent) => {
     const msg = event.data as
       | { type: "capability"; support: WebGpuSupport; id: string }
-      | { type: "progress"; progress: number; file: string; id: string }
+      | { type: "progress"; progress: number; file: string; status: string; id: string }
       | { type: "result"; memoryId: string; vector: number[]; id: string }
       | { type: "error"; message: string; memoryId?: string; id: string };
     if (msg.type === "capability") {
       state.capability = msg.support;
       if (msg.support !== "unsupported") state.modelState = "ready";
       else state.modelState = "error";
+      state.progress = 100;
       emit();
       return;
     }
     if (msg.type === "progress") {
       state.modelState = "loading";
       state.progress = msg.progress;
-      state.progressFile = msg.file;
+      // The last file reports done/progress 100 while ONNX still builds the
+      // session (no further events until capability). Say so explicitly.
+      state.progressFile =
+        msg.status === "done" || msg.progress >= 100
+          ? "download complete · initializing model…"
+          : msg.file;
       emit();
       return;
     }
@@ -163,8 +173,23 @@ export async function queueIndexing(memory: Memory): Promise<void> {
     const vector = await embedText(semanticText(memory), memory.id);
     await postEmbedding(memory.id, vector);
     state.statusById[memory.id] = "done";
-  } catch {
+  } catch (err) {
     state.statusById[memory.id] = "error";
+    state.lastError = err instanceof Error ? err.message : String(err);
+  }
+  emit();
+}
+
+/** Pre-download + initialize the model before the demo (warms browser cache).
+ * Runs one tiny inference and discards the vector. Never throws. */
+export async function warmEmbeddingModel(): Promise<void> {
+  try {
+    await embedText("vistara warmup", "__warmup__");
+    state.modelState = "ready";
+    state.lastError = "";
+  } catch (err) {
+    state.modelState = "error";
+    state.lastError = err instanceof Error ? err.message : String(err);
   }
   emit();
 }

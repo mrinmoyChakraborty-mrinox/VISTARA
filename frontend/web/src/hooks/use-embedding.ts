@@ -7,6 +7,7 @@ import {
   queueIndexing,
   reloadEmbeddingModel,
   subscribeEmbedding,
+  warmEmbeddingModel,
   type IndexStatus,
 } from "@/lib/embeddingQueue";
 import type { Memory } from "@/types/domain";
@@ -31,7 +32,7 @@ export function useEmbeddingStats() {
 
   useEffect(() => subscribeEmbedding(setStats), []);
 
-  return { ...stats, reload: reloadEmbeddingModel, index: queueIndexing };
+  return { ...stats, reload: reloadEmbeddingModel, index: queueIndexing, warm: warmEmbeddingModel };
 }
 
 export type { Memory };

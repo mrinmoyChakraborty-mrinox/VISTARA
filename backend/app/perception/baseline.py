@@ -224,6 +224,14 @@ def post_ingest(runtime, user_id: str, now: float, score: float) -> dict:
         if ctx is None:
             return {"emit_change": False, "baseline_ctx": None}
         tracker.mark_attempt_started(now)
+        from backend.app.core.logging import log_event
+
+        log_event(
+            "baseline_started",
+            status="ok",
+            user_id=user_id,
+            camera_id=runtime.source.metadata.id,
+        )
         return {"emit_change": False, "baseline_ctx": ctx}
     return {"emit_change": False, "baseline_ctx": None}
 

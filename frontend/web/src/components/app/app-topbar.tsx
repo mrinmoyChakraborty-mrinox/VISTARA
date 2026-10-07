@@ -25,7 +25,11 @@ export function AppTopbar() {
         Vistara
       </Link>
       <div className="links">
+        <a href="/dashboard">Dashboard</a>
         <a href="/cameras">Cameras</a>
+        <a href="/memory">Memory</a>
+        <a href="/chat">Chat</a>
+        <a href="/settings">Settings</a>
       </div>
       <div className="right">
         {user?.email && (

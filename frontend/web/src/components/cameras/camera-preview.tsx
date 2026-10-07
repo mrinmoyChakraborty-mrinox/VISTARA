@@ -14,7 +14,7 @@ import { ChangeGate } from "@/lib/changeGate";
 import { sampleFrame, toGrayscaleThumbnail } from "@/lib/frameSampler";
 import type { Camera } from "@/types/domain";
 
-type StreamState = "idle" | "requesting" | "live" | "denied" | "unavailable";
+type StreamState = "idle" | "requesting" | "live" | "denied" | "unavailable" | "recorded";
 
 /** Unconditional frames sent right after connect to seed the backend baseline. */
 const BASELINE_SEED_FRAMES = 8;
@@ -76,6 +76,13 @@ export function CameraPreview({ camera }: { camera: Camera }) {
 
     async function start() {
       if (!video || cancelled) return;
+      // Recorded demo sources play on the server; the browser only watches
+      // status + memories over the socket. No getUserMedia here.
+      if (camera.source_type === "video_file") {
+        if (cancelled) return;
+        setStreamState("recorded");
+        return;
+      }
       if (!navigator.mediaDevices?.getUserMedia) {
         setStreamState("unavailable");
         return;
@@ -196,11 +203,20 @@ export function CameraPreview({ camera }: { camera: Camera }) {
           />
         )}
         <span className="tag">
-          {streamState === "live" ? `● live · ${processing}` : streamState}
+          {streamState === "live"
+            ? `● live · ${processing}`
+            : streamState === "recorded"
+              ? `● recorded source · ${processing}`
+              : streamState}
         </span>
       </div>
 
-      {streamState === "denied" || streamState === "unavailable" ? (
+      {streamState === "recorded" ? (
+        <p className="mono mute" style={{ marginTop: 12 }}>
+          Recorded video plays on the server. Memories and events arrive live
+          below — no camera permission needed.
+        </p>
+      ) : streamState === "denied" || streamState === "unavailable" ? (
         <div
           role="alert"
           style={{

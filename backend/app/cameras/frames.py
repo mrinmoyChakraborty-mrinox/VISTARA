@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import time
 from dataclasses import dataclass, field
+from datetime import datetime
 from typing import Any
 
 import numpy as np
@@ -28,6 +29,9 @@ class NormalizedFrame:
     pixel_format: str = "bgr24"
     seq: int = 0  # per-camera sequence number (0 = unknown)
     client_ts: float | None = None  # sender wall-clock ms/1000 when provided
+    # Source wall time (e.g. recorded-video media position mapped onto the demo
+    # clock). None = live path, which keeps processing-time semantics exactly.
+    source_ts: datetime | None = None
     source_metadata: dict[str, Any] = field(default_factory=dict)
 
     @property
@@ -66,6 +70,7 @@ def make_normalized_frame(
     frame: np.ndarray,
     seq: int = 0,
     client_ts: float | None = None,
+    source_ts: datetime | None = None,
     source_metadata: dict[str, Any] | None = None,
     now: float | None = None,
 ) -> NormalizedFrame:
@@ -78,5 +83,6 @@ def make_normalized_frame(
         height=h,
         seq=seq,
         client_ts=client_ts,
+        source_ts=source_ts,
         source_metadata=dict(source_metadata or {}),
     )

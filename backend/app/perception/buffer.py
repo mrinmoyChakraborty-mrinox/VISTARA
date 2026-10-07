@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from collections import deque
 from dataclasses import dataclass
+from datetime import datetime
 
 import numpy as np
 
@@ -12,6 +13,9 @@ import numpy as np
 class BufferedFrame:
     frame: np.ndarray
     ts: float
+    # Source wall time when the producer knows it (recorded video); None keeps
+    # live processing-time semantics exactly.
+    source_ts: datetime | None = None
 
 
 class RollingBuffer:
@@ -23,8 +27,8 @@ class RollingBuffer:
     def __len__(self) -> int:
         return len(self._frames)
 
-    def push(self, frame: np.ndarray, ts: float) -> None:
-        self._frames.append(BufferedFrame(frame=frame, ts=ts))
+    def push(self, frame: np.ndarray, ts: float, source_ts=None) -> None:
+        self._frames.append(BufferedFrame(frame=frame, ts=ts, source_ts=source_ts))
 
     def snapshot(self) -> list[BufferedFrame]:
         return list(self._frames)

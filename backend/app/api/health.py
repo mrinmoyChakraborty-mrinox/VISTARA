@@ -10,7 +10,7 @@ router = APIRouter(tags=["health"])
 
 
 def _db_backend() -> str:
-    url = settings.database_url
+    url = settings.effective_database_url
     if not url:
         return "unset"
     if url.startswith("sqlite"):
@@ -26,6 +26,8 @@ def health() -> dict:
         "status": "ok",
         "backend": True,
         "environment": settings.app_env,
+        "mode": settings.vistara_mode.strip().lower(),
+        "local_auth": settings.is_local,
         "database": {
             "configured": settings.database_configured,
             "backend": _db_backend(),

@@ -81,11 +81,14 @@ def build_event_payload(buffer: RollingBuffer) -> EventContext | None:
             except ValueError:
                 crop_jpeg = None
 
+    # Memory/event timestamps use source time when the producer knows it
+    # (recorded video) and processing time otherwise (live cameras unchanged).
+    source_ts = current.source_ts or datetime.now(timezone.utc)
     # Order: high-res current first, then context, then crop.
     return EventContext(
         camera_id="",
         user_id="",
-        timestamp=datetime.now(timezone.utc),
+        timestamp=source_ts,
         main_jpeg=main_jpeg,
         context_jpegs=context_jpegs,
         crop_jpeg=crop_jpeg,

@@ -2,7 +2,6 @@
 // ONNX Runtime Web, WebGPU when available with a WASM fallback. Never runs on
 // the main thread. Emits 1024-dim vectors only — never frames.
 import { pipeline, type FeatureExtractionPipeline } from "@huggingface/transformers";
-
 type Device = "webgpu" | "wasm";
 
 interface EmbedRequest {
@@ -14,11 +13,16 @@ interface EmbedRequest {
 
 type Outgoing =
   | { id: string; type: "capability"; support: "webgpu" | "wasm" | "unsupported" }
-  | { id: string; type: "progress"; progress: number; file: string }
+  | { id: string; type: "progress"; progress: number; file: string; status: string }
   | { id: string; type: "result"; memoryId: string; vector: number[]; dims: number }
   | { id: string; type: "error"; memoryId?: string; message: string };
 
-const MODEL = "Qwen/Qwen3-Embedding-0.6B";
+// Browser-ready ONNX build of the SAME Qwen3-Embedding-0.6B weights
+// (the Qwen/Qwen3-Embedding-0.6B repo ships PyTorch only, which browsers
+// cannot load — that id 404s under Transformers.js). q8 keeps the download
+// small; output dims stay 1024.
+const MODEL = "onnx-community/Qwen3-Embedding-0.6B-ONNX";
+const DTYPE = "q8";
 const DIMS = 1024;
 
 let extractor: FeatureExtractionPipeline | null = null;
@@ -49,16 +53,19 @@ async function loadExtractor(id: string): Promise<FeatureExtractionPipeline | nu
   try {
     extractor = (await pipeline("feature-extraction", MODEL, {
       device,
+      dtype: DTYPE,
       progress_callback: (info: unknown) => {
         const update = info as { progress?: number; file?: string; status?: string };
-        if (typeof update.progress === "number") {
-          post({
-            id,
-            type: "progress",
-            progress: Math.round(update.progress),
-            file: String(update.file ?? update.status ?? "model"),
-          });
-        }
+        // Forward every phase: initiate/download/done per file. "done" on the
+        // last file still precedes ONNX session init, which emits nothing —
+        // the UI shows "initializing" until capability arrives.
+        post({
+          id,
+          type: "progress",
+          progress: Math.round(update.progress ?? (update.status === "done" ? 100 : 0)),
+          file: String(update.file ?? update.status ?? "model"),
+          status: String(update.status ?? ""),
+        });
       },
     })) as FeatureExtractionPipeline;
     post({ id, type: "capability", support: device });
@@ -70,6 +77,7 @@ async function loadExtractor(id: string): Promise<FeatureExtractionPipeline | nu
         device = "wasm";
         extractor = (await pipeline("feature-extraction", MODEL, {
           device,
+          dtype: DTYPE,
         })) as FeatureExtractionPipeline;
         post({ id, type: "capability", support: "wasm" });
         return extractor;

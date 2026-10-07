@@ -3,6 +3,8 @@
 import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
 
+import { VistaraMark } from "@/components/brand/vistara-mark";
+
 const WEEKDAYS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 
 function ordinal(day: number): string {
@@ -91,7 +93,7 @@ export function DateCard({ variant }: { variant: "login" | "signup" }) {
       </div>
       <div className="rb">
         <span className="logo">
-          <b />
+          <VistaraMark size={22} />
           Vistara
         </span>
         <Link className="pillb" href="/#rewind">

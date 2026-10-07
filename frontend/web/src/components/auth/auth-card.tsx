@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useRef, useState, type FormEvent } from "react";
 
+import { VistaraMark } from "@/components/brand/vistara-mark";
 import { useAuth } from "@/components/providers/auth-provider";
 import { getSupabaseClient } from "@/lib/supabaseClient";
 
@@ -146,7 +147,7 @@ export function AuthCard({
       <form className="glass login in" noValidate style={{ animationDelay: ".1s" }}>
         <div className="row">
           <span className="small logo" style={{ fontSize: "1rem" }}>
-            <b />
+            <VistaraMark size={20} />
             Vistara
           </span>
           <Link className="link" href="/login">
@@ -177,7 +178,7 @@ export function AuthCard({
     >
       <div className="row">
         <span className="small logo" style={{ fontSize: "1rem" }}>
-          <b />
+          <VistaraMark size={20} />
           Vistara
         </span>
         <Link className="link" href={mode === "login" ? "/signup" : "/login"}>

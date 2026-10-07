@@ -1,6 +1,7 @@
 import Link from "next/link";
 import type { ReactNode } from "react";
 
+import { VistaraMark } from "@/components/brand/vistara-mark";
 import { TabletopScene } from "@/components/auth/tabletop-scene";
 import { ThemeToggle } from "@/components/landing/theme-toggle";
 
@@ -14,7 +15,7 @@ export default function AuthLayout({ children }: { children: ReactNode }) {
       <TabletopScene />
       <div className="top">
         <Link className="logo" href="/" aria-label="Vistara home">
-          <b />
+          <VistaraMark size={26} priority />
           Vistara
         </Link>
         <ThemeToggle />

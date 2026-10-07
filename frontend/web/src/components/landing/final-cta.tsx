@@ -1,4 +1,4 @@
-import { BeamButton } from "@/components/ui-fx/beam-button";
+import { ShimmerButton } from "@/components/ui-fx/shimmer-button";
 import { Reveal } from "@/components/landing/reveal";
 
 export function FinalCta() {
@@ -10,7 +10,7 @@ export function FinalCta() {
           Memory active
         </div>
         <h2>Ship the loop. Start remembering.</h2>
-        <BeamButton href="/signup">Start your first memory</BeamButton>
+        <ShimmerButton href="/signup">Start your first memory</ShimmerButton>
       </Reveal>
     </section>
   );

@@ -1,3 +1,5 @@
+import { VistaraMark } from "@/components/brand/vistara-mark";
+
 /**
  * Styled loading skeleton matching the login card's final size, so the
  * prerendered page never flashes unstyled text.
@@ -7,7 +9,7 @@ export function AuthFormSkeleton() {
     <div className="glass login in" aria-hidden="true" style={{ animationDelay: ".1s" }}>
       <div className="row">
         <span className="small logo" style={{ fontSize: "1rem" }}>
-          <b />
+          <VistaraMark size={20} />
           Vistara
         </span>
       </div>

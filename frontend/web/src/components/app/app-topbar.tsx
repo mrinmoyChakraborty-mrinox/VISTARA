@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { LogOut } from "lucide-react";
 
+import { VistaraMark } from "@/components/brand/vistara-mark";
 import { ThemeToggle } from "@/components/landing/theme-toggle";
 import { useAuth } from "@/components/providers/auth-provider";
 
@@ -20,7 +21,7 @@ export function AppTopbar() {
   return (
     <nav aria-label="Application">
       <Link className="logo" href="/" aria-label="Vistara home">
-        <b aria-hidden="true" />
+        <VistaraMark size={28} />
         Vistara
       </Link>
       <div className="links">

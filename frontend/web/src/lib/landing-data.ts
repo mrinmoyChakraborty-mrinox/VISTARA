@@ -67,7 +67,6 @@ export type Feature = {
   title: string;
   body: string;
   wide?: boolean;
-  beam?: boolean;
 };
 
 export const FEATURES: Feature[] = [
@@ -77,7 +76,6 @@ export const FEATURES: Feature[] = [
     title: "Smart change detection",
     body: "Ignores a still room and wakes up only when something moves, so it never burns AI on an empty desk.",
     wide: true,
-    beam: true,
   },
   { category: "mem", icon: "🖼", title: "Visual evidence", body: "Every memory links to the exact frame." },
   { category: "mem", icon: "🕰", title: "Object history", body: "First seen, last seen and every move between." },

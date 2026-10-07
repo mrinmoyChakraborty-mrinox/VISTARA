@@ -56,12 +56,7 @@ function FeatureCard({
   return (
     <div
       ref={ref}
-      className={cn(
-        "fc",
-        feature.wide && "wide",
-        feature.beam && "beam",
-        hidden && "hide",
-      )}
+      className={cn("fc", feature.wide && "wide", hidden && "hide")}
       onMouseMove={onMouseMove}
     >
       <span className="ic">{feature.icon}</span>

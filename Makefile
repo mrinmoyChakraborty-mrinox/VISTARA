@@ -1,4 +1,4 @@
-.PHONY: run install test smoke
+.PHONY: run install test lint
 
 run:
 	uvicorn backend.app.main:app --reload --port 8000
@@ -9,6 +9,5 @@ install:
 test:
 	pytest -q
 
-# Stage 1+ (placeholder target; script lands in Stage 1)
-smoke:
-	python scripts/vlm_smoke_test.py
+lint:
+	ruff check backend

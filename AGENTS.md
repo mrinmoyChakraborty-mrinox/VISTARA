@@ -1,40 +1,37 @@
 # AGENTS.md — Visual Memory (backend-owned)
 
 ## Scope
-- Backend only: Python, FastAPI, WebSockets, OpenCV, Pydantic, SQLite (SQLModel/SQLAlchemy).
-- Do NOT write React code. `frontend/` stays an empty placeholder (teammate-owned).
+- Backend only: Python 3.12, FastAPI, Pydantic, OpenCV, asyncio, WebSockets.
+- Do NOT write React code. The frontend is a separate app; its plan lives in `docs/FRONTEND_PLAN.md`.
 - Do NOT build anything marked P2/P3 in TASK.md.
 
-## Source of truth
-- Specs: `docs/PLAN.md`, `docs/TASK.md`, `docs/IMPLEMENTATION.md`, `docs/ARCHITECTURE.md`
-  (copies of the root specs; root copies are the originals).
-- Where specs conflict with the build prompt, the prompt wins. Known conflicts:
-  - Cloud-only Groq inference (no local models / Ollama / GPU). Docs mention local VLM first.
-  - VLM `qwen/qwen3-vl-32b`, fallback `qwen/qwen3-vl-32b`; chat `openai/gpt-oss-20b`, one `GROQ_API_KEY`.
-  - SQLite + local `data/evidence/`, NOT Supabase/Postgres/pgvector/Storage.
-  - Seeded demo user + static token header, NOT Supabase Auth / register-login.
-  - No browser Transformers.js/WebGPU embeddings; optional CPU Qwen3-Embedding-0.6B stretch only.
-  - No Next.js/shadcn/FFmpeg work in this repo.
+## Locked architecture (ARCHITECTURE.md is source of truth for tech)
+- Visual model: **Qwen3.8-27B**, Groq, `qwen/qwen3.8-27b`. NOT Qwen3-VL-2B.
+- Chat/agent: **GPT-OSS 20B**, Groq, `openai/gpt-oss-20b`.
+- Embeddings: **Qwen3-Embedding-0.6B**, CLIENT-SIDE (Transformers.js + ONNX + WebGPU). The
+  backend only stores the 1024-dim vector the browser sends.
+- Local gate: OpenCV frame difference (+ optional SSIM). No second AI model.
+- Database: **Supabase** — Auth, PostgreSQL, pgvector, Storage.
+- Forbidden: Ollama, Firestore, Redis, Celery, Kafka, Qdrant, Pinecone, facial recognition.
 
 ## Env vars
-`GROQ_API_KEY, VLM_MODEL, VLM_FALLBACK_MODEL, LLM_MODEL`
-plus gate settings from IMPLEMENTATION.md s5:
-`FRAME_SAMPLE_FPS, CHANGE_THRESHOLD, EVENT_COOLDOWN_SECONDS, PRE_EVENT_SECONDS, POST_EVENT_SECONDS`
-plus `DATABASE_URL, EVIDENCE_DIR, DEMO_AUTH_TOKEN, MOCK_MODE, APP_ENV`.
-See `.env.example`. Keep `LLMProvider` / `VLMProvider` interfaces swappable.
+`SUPABASE_URL, SUPABASE_ANON_KEY, SUPABASE_SERVICE_ROLE_KEY, SUPABASE_JWT_SECRET,
+SUPABASE_EVIDENCE_BUCKET, DATABASE_URL, GROQ_API_KEY, GROQ_VLM_MODEL, GROQ_CHAT_MODEL,
+FRAME_SAMPLE_FPS, CHANGE_THRESHOLD, BUFFER_SECONDS, PRE_EVENT_SECONDS, POST_EVENT_SECONDS,
+COOLDOWN_SECONDS, PERSISTENCE_FRAMES, USE_SSIM, VLM_*_MAX_SIDE, GROQ_TIMEOUT_SECONDS, MOCK_MODE`.
+Never log or ship `GROQ_API_KEY` / `SUPABASE_SERVICE_ROLE_KEY` to the frontend.
 
 ## Hard rules
-- Work stage-by-stage, in order; stop + show result after each stage; commit per stage; keep README accurate.
-- Never add a dependency without saying why (note it in `backend/requirements.txt` + commit message).
-- Every DB query takes `user_id` from the authenticated identity, never from client input.
-- Agent/retrieval code never invents events: "last observed" wording, never claim certain absence.
-- Validate all VLM JSON with Pydantic; retry once on malformed output (Stage 1+).
+- Work stage-by-stage; stop and show the result after each stage.
+- Every DB query takes `user_id` from the authenticated identity, never client input.
+- All SQL lives in `backend/app/db/repositories.py`; services call repositories, routes call services.
+- Validate all VLM JSON with Pydantic; retry once on malformed output.
 - One physical move => exactly one event (scene-state delta + cooldown).
+- Agent/retrieval never invent events: "last observed" wording, never claim certain absence.
+- Do not add a dependency without saying why (note it in `backend/requirements.txt`).
+- Camera ingestion must not block on VLM inference (queue + worker).
+- Tests must pass with no Groq key, no camera, no Supabase, no GPU.
+- MOCK_MODE=true swaps in offline mock providers.
 
-## Layout
-`backend/app/{api,camera,perception,inference,memory,retrieval,agent,storage,models}`,
-`frontend/` (placeholder), `data/evidence/`, `docs/`, `scripts/`, `tests/`.
-
-## Run
-`make run` (or `uvicorn backend.app.main:app --reload --port 8000`).
-Health: `GET /api/health`. OpenAPI: `/docs`.
+## Run / test
+`make run` (uvicorn on :8000) · `make test` (pytest, offline). Health: `GET /api/health`.

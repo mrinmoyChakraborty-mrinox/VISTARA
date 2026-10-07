@@ -1,0 +1,17 @@
+# ---> Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+# ---> Data / secrets
+.env
+data/app.db
+data/app.db-journal
+data/evidence/
+!data/evidence/.gitkeep
+# ---> OS / editors
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/

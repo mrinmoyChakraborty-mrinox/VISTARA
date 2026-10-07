@@ -1,0 +1,22 @@
+# Dependencies (Stage 0 — skeleton only; backend does not call Groq yet)
+# Why each exists:
+#   fastapi            — REST + WebSocket server
+#   uvicorn[standard]  — ASGI server for `make run`
+#   pydantic>=2        — VLM JSON validation, settings, schemas
+#   sqlmodel           — SQLite ORM (SQLAlchemy wrapper) for memories/events
+#   opencv-python      — Stage 4 perception gate (frame diff); imported then, listed now so install is stable
+#   numpy              — OpenCV frame math
+#   groq               — Stage 1+ cloud inference client (VLM + chat)
+#   python-dotenv      — load .env in dev
+#   httpx              — HTTP client (Groq SDK transport / tests)
+#   pytest             — Stage 4+ gate/delta/isolation tests
+fastapi>=0.115
+uvicorn[standard]>=0.30
+pydantic>=2.7
+sqlmodel>=0.0.22
+opencv-python>=4.9
+numpy>=1.26
+groq>=0.11
+python-dotenv>=1.0
+httpx>=0.27
+pytest>=8.0

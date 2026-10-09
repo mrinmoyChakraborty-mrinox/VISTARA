@@ -12,6 +12,18 @@ function DialogContent({ onClose }: { onClose: () => void }) {
   const localMode =
     typeof process !== "undefined" &&
     (process.env.NEXT_PUBLIC_VISTARA_MODE ?? "local") !== "live";
+  // Live deployments create browser/phone cameras (phone pairs via QR);
+  // local mode additionally offers the recorded demo video.
+  const options = localMode
+    ? [
+        { value: "browser", label: "browser — this device camera" },
+        { value: "phone", label: "phone — pair via QR code" },
+        { value: "video_file", label: "video_file — recorded demo video" },
+      ]
+    : [
+        { value: "browser", label: "browser — this device camera" },
+        { value: "phone", label: "phone — pair via QR code" },
+      ];
   const create = useCreateCamera();
 
   const onSubmit = (e: FormEvent) => {
@@ -52,7 +64,9 @@ function DialogContent({ onClose }: { onClose: () => void }) {
         <p className="mute" style={{ marginTop: 6, fontSize: ".92rem" }}>
           {sourceType === "video_file"
             ? "Recorded demo video plays on the server through the same watch–notice–remember loop."
-            : "Browser cameras stream from this device. Nothing leaves the browser until the local gate sees motion."}
+            : sourceType === "phone"
+              ? "Creates a phone camera. After adding, open Pair to show a QR code for the phone to scan."
+              : "Browser cameras stream from this device. Nothing leaves the browser until the local gate sees motion."}
         </p>
         <form onSubmit={onSubmit} style={{ display: "grid", gap: 14, marginTop: 18 }}>
           <div className="auth-field">
@@ -69,18 +83,17 @@ function DialogContent({ onClose }: { onClose: () => void }) {
           </div>
           <div className="auth-field">
             <label htmlFor="camera-source">Source type</label>
-            {localMode ? (
-              <select
-                id="camera-source"
-                value={sourceType}
-                onChange={(e) => setSourceType(e.target.value)}
-              >
-                <option value="browser">browser — this device camera</option>
-                <option value="video_file">video_file — recorded demo video</option>
-              </select>
-            ) : (
-              <input id="camera-source" value="browser" readOnly aria-readonly="true" />
-            )}
+            <select
+              id="camera-source"
+              value={sourceType}
+              onChange={(e) => setSourceType(e.target.value)}
+            >
+              {options.map((o) => (
+                <option key={o.value} value={o.value}>
+                  {o.label}
+                </option>
+              ))}
+            </select>
           </div>
           <FormError
             message={

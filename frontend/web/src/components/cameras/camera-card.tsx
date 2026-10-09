@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Play, Square, Trash2 } from "lucide-react";
+import { Play, QrCode, Square, Trash2 } from "lucide-react";
 
 import { SpotlightCard } from "@/components/ui-fx/spotlight-card";
 import type { Camera, CameraStatus } from "@/types/domain";
@@ -29,6 +29,7 @@ export function CameraCard({
   onStart,
   onStop,
   onDelete,
+  onPair,
 }: {
   camera: Camera;
   active: boolean;
@@ -37,6 +38,7 @@ export function CameraCard({
   onStart: () => void;
   onStop: () => void;
   onDelete: () => void;
+  onPair?: () => void;
 }) {
   const [confirming, setConfirming] = useState(false);
 
@@ -82,6 +84,18 @@ export function CameraCard({
           >
             <Play size={15} aria-hidden="true" />
             Start
+          </button>
+        )}
+        {onPair && (camera.source_type === "phone" || camera.source_type === "browser") && (
+          <button
+            type="button"
+            className="btn"
+            onClick={onPair}
+            disabled={busy}
+            aria-label={`Pair phone for camera ${camera.name}`}
+          >
+            <QrCode size={15} aria-hidden="true" />
+            Pair
           </button>
         )}
         {confirming ? (

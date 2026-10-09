@@ -4,12 +4,13 @@ import { useState } from "react";
 import { Plus, VideoOff } from "lucide-react";
 
 import { useCamera } from "@/components/providers/camera-provider";
-import { BrandLoader } from "@/components/loader/BrandLoader";
 import { CameraCard } from "@/components/cameras/camera-card";
 import { CameraPreview } from "@/components/cameras/camera-preview";
 import { LiveMemoryFeed } from "@/components/cameras/live-memory-feed";
 import { NewCameraDialog } from "@/components/cameras/new-camera-dialog";
+import { PairDialog } from "@/components/cameras/pair-dialog";
 import { ProcessingBadge } from "@/components/cameras/processing-badge";
+import { BrandLoader } from "@/components/loader/BrandLoader";
 import {
   useCamerasQuery,
   useDeleteCamera,
@@ -44,6 +45,7 @@ export default function CamerasPage() {
     socketError,
   } = useCamera();
   const [dialogOpen, setDialogOpen] = useState(false);
+  const [pairFor, setPairFor] = useState<{ id: string; name: string } | null>(null);
 
   const startMut = useStartCamera();
   const stopMut = useStopCamera();
@@ -156,6 +158,7 @@ export default function CamerasPage() {
               onStart={() => onStart(camera.id)}
               onStop={() => onStop(camera.id)}
               onDelete={() => onDelete(camera.id)}
+              onPair={() => setPairFor({ id: camera.id, name: camera.name })}
             />
           ))}
         </div>
@@ -170,6 +173,14 @@ export default function CamerasPage() {
 
       <ProcessingBadge />
       <NewCameraDialog open={dialogOpen} onClose={() => setDialogOpen(false)} />
+      {pairFor && (
+        <PairDialog
+          cameraId={pairFor.id}
+          cameraName={pairFor.name}
+          open
+          onClose={() => setPairFor(null)}
+        />
+      )}
     </div>
   );
 }

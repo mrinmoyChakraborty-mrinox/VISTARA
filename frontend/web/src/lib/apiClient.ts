@@ -162,6 +162,33 @@ export function deleteCamera(id: string) {
   return apiFetch<void>(`/api/cameras/${id}`, { method: "DELETE" });
 }
 
+// Phone QR pairing (backend owns the session; the QR carries only the
+// short-lived code — never tokens or secrets).
+export interface PairingInfo {
+  code: string;
+  camera_id: string;
+  status: string;
+  expires_at: number;
+  expires_in_seconds?: number;
+}
+
+export function createPairing(cameraId: string) {
+  return apiFetch<PairingInfo>(`/api/cameras/${cameraId}/pairing`, {
+    method: "POST",
+  });
+}
+
+export function getPairingStatus(code: string) {
+  return apiFetch<PairingInfo>(`/api/pairing/${encodeURIComponent(code)}/status`);
+}
+
+export function revokePairing(code: string) {
+  return apiFetch<{ revoked: boolean }>(
+    `/api/pairing/${encodeURIComponent(code)}/revoke`,
+    { method: "POST" },
+  );
+}
+
 export function startCamera(id: string) {
   // The backend returns the updated camera (CameraOut), not a session record.
   return apiFetch<Camera>(`/api/cameras/${id}/start`, { method: "POST" });

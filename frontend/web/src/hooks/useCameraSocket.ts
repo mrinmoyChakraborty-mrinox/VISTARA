@@ -17,6 +17,8 @@ const MAX_DELAY_MS = 15000;
 
 interface UseCameraSocketOptions {
   token: string | null;
+  /** Phone path: short-lived single-use pairing code instead of a JWT. */
+  pairingCode?: string | null;
   enabled?: boolean;
   onMemory?: (memory: Memory) => void;
 }
@@ -39,7 +41,7 @@ export interface CameraSocket {
  */
 export function useCameraSocket(
   cameraId: string | null,
-  { token, enabled = true, onMemory }: UseCameraSocketOptions,
+  { token, pairingCode = null, enabled = true, onMemory }: UseCameraSocketOptions,
 ): CameraSocket {
   const [connection, setConnection] = useState<WsConnectionState>("disconnected");
   const [processing, setProcessing] = useState<ProcessingState>("idle");
@@ -77,7 +79,8 @@ export function useCameraSocket(
   }, []);
 
   useEffect(() => {
-    if (!enabled || !cameraId || !token || !isEnvConfigured()) {
+    const credential = pairingCode ?? token;
+    if (!enabled || !cameraId || !credential || !isEnvConfigured()) {
       const id = requestAnimationFrame(() => setConnection("disconnected"));
       return () => cancelAnimationFrame(id);
     }
@@ -94,9 +97,12 @@ export function useCameraSocket(
     const connect = () => {
       if (!shouldConnectRef.current) return;
       const { wsUrl } = getEnv();
-      const socket = new WebSocket(
-        `${wsUrl}/ws/cameras/${cameraId}?token=${encodeURIComponent(token)}`,
-      );
+      // Backend contract: ?token=<jwt> for user browsers, ?pairing=<code>
+      // for paired phones. Never send both.
+      const query = pairingCode
+        ? `pairing=${encodeURIComponent(pairingCode)}`
+        : `token=${encodeURIComponent(token as string)}`;
+      const socket = new WebSocket(`${wsUrl}/ws/cameras/${cameraId}?${query}`);
       socketRef.current = socket;
       setConnection("connecting");
 
@@ -190,7 +196,7 @@ export function useCameraSocket(
       clearRetry();
       closeSocket();
     };
-  }, [cameraId, token, enabled, clearRetry, closeSocket]);
+  }, [cameraId, token, pairingCode, enabled, clearRetry, closeSocket]);
 
   const sendFrame = useCallback((data: string, ts: number) => {
     const socket = socketRef.current;

@@ -56,27 +56,67 @@ def _local_auth_enabled() -> bool:
     return settings.mock_mode or settings.is_local
 
 
+_jwks_clients: dict[str, Any] = {}
+
+
+def _jwks_client(jwks_url: str):
+    """Cached PyJWKClient per JWKS URL (avoids refetching keys per request)."""
+    import jwt
+
+    client = _jwks_clients.get(jwks_url)
+    if client is None:
+        client = jwt.PyJWKClient(jwks_url, cache_keys=True)
+        _jwks_clients[jwks_url] = client
+    return client
+
+
 def _decode_supabase_jwt(token: str) -> dict[str, Any]:
     """Verify a Supabase-issued JWT.
 
-    Supabase signs with HS256 using the project JWT secret (legacy) or asymmetric
-    keys (newer projects). We support HS256 via SUPABASE_JWT_SECRET and otherwise
-    fall back to JWKS verification through supabase-py's auth helper.
+    Supabase signs with HS256 using the project JWT secret (legacy) or
+    asymmetric keys such as ES256 (newer projects). HS256 tokens verify
+    against SUPABASE_JWT_SECRET; anything else verifies against the project's
+    JWKS document so valid asymmetric tokens are not rejected.
     """
     import jwt
 
-    secret = settings.supabase_jwt_secret
-    if not secret:
-        raise AuthError("Server auth is not configured (SUPABASE_JWT_SECRET missing).")
-
     try:
+        header = jwt.get_unverified_header(token)
+    except Exception as exc:  # noqa: BLE001
+        raise AuthError(f"Invalid or expired token: {exc}") from exc
+    alg = str(header.get("alg", "")).upper()
+
+    if alg == "HS256":
+        secret = settings.supabase_jwt_secret
+        if not secret:
+            raise AuthError(
+                "Server auth is not configured (SUPABASE_JWT_SECRET missing)."
+            )
+        try:
+            return jwt.decode(
+                token,
+                secret,
+                algorithms=["HS256"],
+                audience=settings.supabase_jwt_audience,
+                options={"verify_aud": bool(settings.supabase_jwt_audience)},
+            )
+        except Exception as exc:  # noqa: BLE001 - map all JWT failures to 401
+            raise AuthError(f"Invalid or expired token: {exc}") from exc
+
+    if not settings.supabase_url:
+        raise AuthError("Server auth is not configured (SUPABASE_URL missing).")
+    jwks_url = settings.supabase_url.rstrip("/") + "/auth/v1/.well-known/jwks.json"
+    try:
+        signing_key = _jwks_client(jwks_url).get_signing_key_from_jwt(token)
         return jwt.decode(
             token,
-            secret,
-            algorithms=["HS256"],
+            signing_key.key,
+            algorithms=[alg or "ES256"],
             audience=settings.supabase_jwt_audience,
             options={"verify_aud": bool(settings.supabase_jwt_audience)},
         )
+    except AuthError:
+        raise
     except Exception as exc:  # noqa: BLE001 - map all JWT failures to 401
         raise AuthError(f"Invalid or expired token: {exc}") from exc
 
